@@ -24,6 +24,5 @@ O Rua Segura propõe:
 - Uso de geolocalização para análise contextual
 - Coleta colaborativa e/ou integração com dados externos
 - Visualização de ocorrências em mapa
-- Base para futuras integrações com mobilidade urbana e dados públicos
 
 ---
