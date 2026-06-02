@@ -1,0 +1,19 @@
+# ==========================================
+# Backend (Python / FastAPI)
+# ==========================================
+backend/venv/
+backend/__pycache__/
+backend/.pytest_cache/
+backend/.mypy_cache/
+*.pyc
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+/node_modules
