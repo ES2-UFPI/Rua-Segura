@@ -1,0 +1,71 @@
+import { Platform } from 'react-native';
+
+const BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000');
+
+export interface ReviewCreatePayload {
+  category: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface LocationReviewResponse {
+  id: string;
+  category: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  timestamp: string;
+}
+
+export const reviewApi = {
+  /**
+   * Obtém todas as avaliações de segurança registradas.
+   */
+  async getReviews(): Promise<LocationReviewResponse[]> {
+    try {
+      const response = await fetch(`${BASE_URL}/api/reviews`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar avaliações: ${response.status}`);
+      }
+      return (await response.json()) as LocationReviewResponse[];
+    } catch (error) {
+      console.error('Erro na chamada reviewApi.getReviews:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Cadastra uma nova avaliação de segurança.
+   */
+  async createReview(payload: ReviewCreatePayload): Promise<LocationReviewResponse> {
+    try {
+      const response = await fetch(`${BASE_URL}/api/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const message = errData?.detail || `Erro do servidor: ${response.status}`;
+        throw new Error(message);
+      }
+
+      return (await response.json()) as LocationReviewResponse;
+    } catch (error) {
+      console.error('Erro na chamada reviewApi.createReview:', error);
+      throw error;
+    }
+  },
+};
