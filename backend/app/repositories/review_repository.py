@@ -27,40 +27,54 @@ class InMemoryReviewRepository(ReviewRepository):
     Útil para testes e demonstrações rápidas sem persistência física em banco de dados.
     """
     def __init__(self):
-        # Inicializa o repositório com dados fictícios para fins de demonstração (Teresina, PI)
         self._reviews: List[LocationReview] = [
-            LocationReview(
-                id="d1d23b7a-9db1-4c12-9ab4-1a3b98c36b01",
-                category="Iluminação ruim",
-                description="Rua extremamente escura após as 18h. Vários postes sem lâmpada.",
-                latitude=-5.0895,
-                longitude=-42.8020,
-                timestamp=datetime(2026, 6, 5, 20, 30, tzinfo=timezone.utc)
-            ),
-            LocationReview(
-                id="f2c34b7a-8eb1-4c12-9ab4-2b4c98c36b02",
-                category="Assalto",
-                description="Assalto a mão armada praticado por dupla em moto na esquina da farmácia.",
-                latitude=-5.0930,
-                longitude=-42.8060,
-                timestamp=datetime(2026, 6, 6, 8, 15, tzinfo=timezone.utc)
-            ),
-            LocationReview(
-                id="e3d45b7a-7fb1-4c12-9ab4-3c5d98c36b03",
-                category="Local deserto",
-                description="Rua sem comércio e pouca movimentação de pedestres.",
-                latitude=-5.0910,
-                longitude=-42.7990,
-                timestamp=datetime(2026, 6, 4, 15, 45, tzinfo=timezone.utc)
-            ),
-            LocationReview(
-                id="a4e56b7a-6ab1-4c12-9ab4-4d6e98c36b04",
-                category="Furto",
-                description="Furto de celular de dentro do carro estacionado na rua.",
-                latitude=-5.0880,
-                longitude=-42.8050,
-                timestamp=datetime(2026, 6, 3, 19, 00, tzinfo=timezone.utc)
-            )
+        # ZONA VERMELHA (Muitas ocorrências de peso 3 próximas)
+            LocationReview(id="1", 
+                           category="Assalto", 
+                           description="Roubo de moto", 
+                           latitude=-5.0550, 
+                           longitude=-42.7900, 
+                           timestamp=datetime(2026, 6, 6, 8, 15, tzinfo=timezone.utc)),
+            LocationReview(id="2", 
+                           category="Assalto", 
+                           description="Assalto a mão armada", 
+                           latitude=-5.0552, 
+                           longitude=-42.7905, 
+                           timestamp=datetime(2026, 6, 6, 9, 00, tzinfo=timezone.utc)),
+            LocationReview(id="3", 
+                           category="Briga/agressão", 
+                           description="Confusão", 
+                           latitude=-5.0545, 
+                           longitude=-42.7890, 
+                           timestamp=datetime(2026, 6, 6, 10, 00, tzinfo=timezone.utc)),
+            LocationReview(id="4", 
+                           category="Furto", 
+                           description="Furto de bicicleta", 
+                           latitude=-5.0560, 
+                           longitude=-42.7910, 
+                           timestamp=datetime(2026, 6, 6, 11, 00, tzinfo=timezone.utc)),
+            
+            # ZONA AMARELA (Ocorrências medianas espalhadas)
+            LocationReview(id="5", 
+                           category="Furto", 
+                           description="Bolsa levada", 
+                           latitude=-5.0600, 
+                           longitude=-42.8000, 
+                           timestamp=datetime(2026, 6, 5, 20, 30, tzinfo=timezone.utc)),
+            LocationReview(id="6", 
+                           category="Movimentação suspeita", 
+                           description="Pessoas estranhas", 
+                           latitude=-5.0605, 
+                           longitude=-42.8010, 
+                           timestamp=datetime(2026, 6, 5, 21, 00, tzinfo=timezone.utc)),
+            
+            # ZONA AZUL (Apenas uma ocorrência leve)
+            LocationReview(id="7", 
+                           category="Iluminação ruim", 
+                           description="Poste apagado perto da UBS", 
+                           latitude=-5.0350, 
+                           longitude=-42.8100, 
+                           timestamp=datetime(2026, 6, 4, 15, 45, tzinfo=timezone.utc)),
         ]
 
     def save(self, review: LocationReview) -> LocationReview:

@@ -63,3 +63,8 @@ frontend/android
 .vscode/.react/
 .vscode/project.xcworkspace/
 
+# Ambiente virtual
+backend/.venv
+backend/venv
+.venv
+venv
