@@ -18,6 +18,12 @@ export interface LocationReviewResponse {
   timestamp: string;
 }
 
+export interface RiskResponse {
+  level: 'AZUL' | 'AMARELO' | 'VERMELHO';
+  score: number;
+  count: number;
+}
+
 export const reviewApi = {
   /**
    * Obtém todas as avaliações de segurança registradas.
@@ -66,4 +72,29 @@ export const reviewApi = {
       throw error;
     }
   },
+
+  /**
+   * Obtém o nível de risco de uma determinada área
+   */
+  async getAreaRisk(latitude: number, longitude: number): Promise<RiskResponse> {
+    try {
+      const response = await fetch(`${BASE_URL}/api/reviews/risk?latitude=${latitude}&longitude=${longitude}`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar o risco da área: ${response.status}`);
+      }
+      
+      return (await response.json()) as RiskResponse;
+    } catch (error) {
+      console.error('Erro na chamada reviewApi.getAreaRisk:', error);
+      // Retorno de fallback para não quebrar a interface em caso de erro de rede
+      return { level: 'AZUL', score: 0, count: 0 };
+    }
+  },
 };
+

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   StyleSheet,
@@ -29,22 +29,34 @@ const RISK_LABELS = [
 interface ReviewModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (category: string, description: string) => Promise<void>;
+  onDone: (category: string, description: string) => void;
   latitude: number;
   longitude: number;
+  initialCategory?: string;
+  initialDescription?: string;
 }
 
 export default function ReviewModal({
   visible,
   onClose,
-  onSubmit,
+  onDone,
   latitude,
   longitude,
+  initialCategory,
+  initialDescription,
 }: ReviewModalProps) {
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (visible) {
+      setSelectedLabel(initialCategory ?? null);
+      setComment(initialDescription ?? '');
+      setErrorMsg(null);
+    }
+  }, [visible, initialCategory, initialDescription]);
 
   const handleSave = async () => {
     if (!selectedLabel) {
@@ -60,8 +72,7 @@ export default function ReviewModal({
     setSubmitting(true);
 
     try {
-      await onSubmit(selectedLabel, comment);
-      // Reset state on success
+      await onDone(selectedLabel, comment);
       setSelectedLabel(null);
       setComment('');
       onClose();
@@ -70,6 +81,12 @@ export default function ReviewModal({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSelectLabel = (label: string) => {
+    setErrorMsg(null);
+    // Se clicar na mesma label, remove a seleção (deselecionar). Caso contrário, seleciona a nova.
+    setSelectedLabel((prev) => (prev === label ? null : label));
   };
 
   return (
@@ -96,16 +113,25 @@ export default function ReviewModal({
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            {/* Coordinate info card */}
-            <View style={styles.locationCard}>
-              <Ionicons name="location-sharp" size={18} color="#0f766e" />
-              <Text style={styles.locationText}>
-                Coordenadas selecionadas:{' '}
-                <Text style={styles.coordsHighlight}>
-                  {latitude.toFixed(5)}, {longitude.toFixed(5)}
-                </Text>
-              </Text>
+            
+            <Text style={styles.sectionTitle}>Coordenadas do Local:</Text>
+            <View style={styles.coordinatesRow}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Latitude</Text>
+                <Text style={styles.coordValue}>{latitude.toFixed(5)}</Text>
+              </View>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Longitude</Text>
+                <Text style={styles.coordValue}>{longitude.toFixed(5)}</Text>
+              </View>
             </View>
+            <TouchableOpacity
+              style={styles.changeLocationButton}
+              onPress={onClose}
+              disabled={submitting}
+            >
+              <Text style={styles.changeLocationText}>Alterar no mapa</Text>
+            </TouchableOpacity>
 
             {/* Error Message */}
             {errorMsg ? (
@@ -116,7 +142,7 @@ export default function ReviewModal({
             ) : null}
 
             {/* Section: Labels */}
-            <Text style={styles.sectionTitle}>Selecione a característica do local:</Text>
+            <Text style={styles.sectionTitle}>Selecione a característica do local *</Text>
             <View style={styles.chipsContainer}>
               {RISK_LABELS.map((item) => {
                 const isSelected = selectedLabel === item.label;
@@ -127,10 +153,7 @@ export default function ReviewModal({
                       styles.chip,
                       isSelected && { backgroundColor: item.color, borderColor: item.color },
                     ]}
-                    onPress={() => {
-                      setSelectedLabel(item.label);
-                      setErrorMsg(null);
-                    }}>
+                    onPress={() => handleSelectLabel(item.label)}>
                     <Ionicons
                       name={item.icon as any}
                       size={16}
@@ -145,7 +168,7 @@ export default function ReviewModal({
             </View>
 
             {/* Section: Comments */}
-            <Text style={styles.sectionTitle}>Comentários sobre o local:</Text>
+            <Text style={styles.sectionTitle}>Comentários sobre o local *</Text>
             <TextInput
               style={styles.textInput}
               placeholder="Descreva o que acontece neste local ou a situação..."
@@ -193,7 +216,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   bottomSheet: {
-    backgroundColor: '#1e293b', // Slate 800 dark mode background
+    backgroundColor: '#1e293b',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 8,
@@ -231,22 +254,42 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 20,
   },
-  locationCard: {
+  coordinatesRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0f172a',
-    padding: 12,
-    borderRadius: 12,
+    gap: 12,
     marginBottom: 16,
-    gap: 8,
   },
-  locationText: {
-    fontSize: 14,
+  inputContainer: {
+    flex: 1,
+  },
+  inputLabel: {
+    fontSize: 12,
     color: '#94a3b8',
+    marginBottom: 4,
+    fontWeight: '600',
   },
-  coordsHighlight: {
-    fontWeight: '700',
+  coordValue: {
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
     color: '#2dd4bf',
+    padding: 10,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  changeLocationButton: {
+    backgroundColor: 'rgba(30, 41, 59, 0.95)',
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderRadius: 12,
+    paddingVertical: 12,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  changeLocationText: {
+    color: '#2dd4bf',
+    fontWeight: '700',
   },
   errorContainer: {
     flexDirection: 'row',

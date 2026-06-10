@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Query
 from typing import List
-from app.schemas.review_schema import ReviewCreate, ReviewResponse
+from app.schemas.review_schema import ReviewCreate, ReviewResponse, RiskResponse
 from app.services.review_service import ReviewService
 from app.repositories.review_repository import InMemoryReviewRepository
 
@@ -42,6 +42,17 @@ def list_reviews():
     """
     return _review_service.get_all_reviews()
 
+@router.get("/risk", response_model=RiskResponse)
+def get_area_risk(
+    latitude: float = Query(..., ge=-90.0, le=90.0, description="Latitude do centro do mapa visível"),
+    longitude: float = Query(..., ge=-180.0, le=180.0, description="Longitude do centro do mapa visível"),
+):
+    """
+    Calcula e retorna o nível de risco de uma área (Verde, Amarelo ou Vermelho)
+    baseando-se na densidade e severidade de ocorrências em um raio de 500 metros.
+    """
+    return _review_service.calculate_area_risk(latitude=latitude, longitude=longitude)
+
 @router.get("/{review_id}", response_model=ReviewResponse)
 def get_review(review_id: str):
     """
@@ -54,3 +65,4 @@ def get_review(review_id: str):
             detail=f"Avaliação com ID {review_id} não encontrada."
         )
     return review
+

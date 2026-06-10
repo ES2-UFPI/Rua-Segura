@@ -14,6 +14,23 @@ class ReviewCategory(str, Enum):
     BRIGA_AGRESSAO = "Briga/agressão"
     LOCAL_DESERTO = "Local deserto"
 
+# Padrão Strategy: Mapeamento de severidade
+SEVERITY_WEIGHTS = {
+    ReviewCategory.ASSALTO: 3,
+    ReviewCategory.BRIGA_AGRESSAO: 3,
+    ReviewCategory.PERSEGUICAO_STALKING: 3,
+    ReviewCategory.FURTO: 2,
+    ReviewCategory.ASSEDIO: 2,
+    ReviewCategory.MOVIMENTACAO_SUSPEITA: 2,
+    ReviewCategory.ILUMINACAO_RUIM: 1,
+    ReviewCategory.INFRAESTRUTURA_INADEQUADA: 1,
+    ReviewCategory.LOCAL_DESERTO: 1,
+}
+class RiskResponse(BaseModel):
+    level: str = Field(..., description="Nível calculado: AZUL, AMARELO ou VERMELHO")
+    score: int = Field(..., description="Pontuação de risco acumulada")
+    count: int = Field(..., description="Quantidade de ocorrências no raio buscado")
+
 class ReviewCreate(BaseModel):
     category: ReviewCategory = Field(..., description="Categoria/Label correspondente à característica ruim do local")
     description: str = Field(..., min_length=1, max_length=1000, description="Comentário ou descrição a respeito da ocorrência no lugar")
