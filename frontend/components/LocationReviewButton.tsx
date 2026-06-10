@@ -43,11 +43,6 @@ const styles = StyleSheet.create({
     bottom: 40,
     alignSelf: 'center',
     zIndex: 99,
-    // Sombra premium para dar profundidade (glassmorphism/3D elevation)
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
     elevation: 8,
   },
   button: {

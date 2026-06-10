@@ -1,31 +1,29 @@
-import React, { useEffect } from 'react';
-import { Platform, StyleSheet, View, Text } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Platform, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 
-// Cores associadas a cada tipo de risco
 export const getCategoryColor = (category: string): string => {
   switch (category) {
     case 'Assalto':
     case 'Briga/agressão':
-      return '#dc2626'; // Vermelho vivo
+      return '#dc2626';
     case 'Assédio':
-      return '#db2777'; // Rosa escuro
+      return '#db2777';
     case 'Furto':
-      return '#f43f5e'; // Rosa
+      return '#f43f5e';
     case 'Perseguição/stalking':
-      return '#2563eb'; // Azul
+      return '#2563eb';
     case 'Movimentação suspeita':
-      return '#7c3aed'; // Violeta
+      return '#7c3aed';
     case 'Iluminação ruim':
-      return '#d97706'; // Ambar/Laranja
+      return '#d97706';
     case 'Local deserto':
-      return '#059669'; // Esmeralda
+      return '#059669';
     case 'Infraestrutura inadequada':
     default:
-      return '#4b5563'; // Cinza escuro
+      return '#4b5563';
   }
 };
 
-// Carrega react-native-maps de forma segura apenas no Mobile para evitar crash no Web
 let MapView: any = null;
 let Marker: any = null;
 if (Platform.OS !== 'web') {
@@ -60,11 +58,26 @@ export default function MapScreen({
   const isWeb = Platform.OS === 'web';
   const webMapId = 'leaflet-map-container';
 
+  // Estados de controle para a Dica e para o Alerta de Área
+  const [isTipExpanded, setIsTipExpanded] = useState(false);
+  const [isAlertExpanded, setIsAlertExpanded] = useState(true); // Começa mostrando na tela
+
+  // Minimiza a dica e o alerta automaticamente após 5 segundos
+  useEffect(() => {
+    if (!isWeb) return;
+
+    const timer = setTimeout(() => {
+      setIsTipExpanded(false);
+      setIsAlertExpanded(false); // Recolhe após o tempo determinado
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [isWeb]);
+
   // --- IMPLEMENTAÇÃO WEB (LEAFLET) ---
   useEffect(() => {
     if (!isWeb) return;
 
-    // Injeta CSS do Leaflet
     if (!document.getElementById('leaflet-css')) {
       const link = document.createElement('link');
       link.id = 'leaflet-css';
@@ -80,12 +93,10 @@ export default function MapScreen({
       const container = document.getElementById(webMapId);
       if (!container) return;
 
-      // Destrói mapa existente para re-inicializar com os marcadores atualizados
       if ((container as any)._leaflet_map) {
         (container as any)._leaflet_map.remove();
       }
 
-      // Teresina, PI como centro padrão
       const mapCenter: [number, number] = selectedPoint
         ? [selectedPoint.latitude, selectedPoint.longitude]
         : [-5.0920, -42.8038];
@@ -97,22 +108,18 @@ export default function MapScreen({
         attribution: '© OpenStreetMap contributors',
       }).addTo(map);
 
-      // Clique no mapa para capturar ponto
       map.on('click', (e: any) => {
         onMapSelectPoint(e.latlng.lat, e.latlng.lng);
       });
 
-      // Detecta quando o usuário termina de arrastar o mapa na Web
       map.on('moveend', () => {
         const center = map.getCenter();
         onRegionChangeComplete(center.lat, center.lng);
       });
 
-      // Renderiza marcadores das avaliações existentes
       reviews.forEach((review) => {
         const pinColor = getCategoryColor(review.category);
         
-        // Marcador colorido customizado com SVG
         const customIcon = L.divIcon({
           className: 'custom-div-icon',
           html: `<div style="background-color: ${pinColor}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.4);"></div>`,
@@ -130,7 +137,6 @@ export default function MapScreen({
           `);
       });
 
-      // Renderiza marcador de "Ponto Selecionado" para nova avaliação
       if (selectedPoint) {
         const selectedIcon = L.divIcon({
           className: 'selected-div-icon',
@@ -139,7 +145,6 @@ export default function MapScreen({
           iconAnchor: [10, 10],
         });
 
-        // Adiciona regra de animação no document
         if (!document.getElementById('leaflet-animation-style')) {
           const style = document.createElement('style');
           style.id = 'leaflet-animation-style';
@@ -160,7 +165,6 @@ export default function MapScreen({
       }
     };
 
-    // Carrega script do Leaflet se necessário
     if (!(window as any).L) {
       const script = document.createElement('script');
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
@@ -175,11 +179,29 @@ export default function MapScreen({
     return (
       <View style={styles.webContainer}>
         <div id={webMapId} style={{ width: '100%', height: '100%', outline: 'none' }} />
-        <View style={styles.webTip}>
-          <Text style={styles.webTipText}>
-            Dica: Clique em qualquer ponto do mapa para selecionar o local da ocorrência.
-          </Text>
-        </View>
+
+        {/* ================= DICA DO MAPA ================= */}
+        {isTipExpanded ? (
+          <View style={styles.webTipExpanded}>
+            <Text style={styles.webTipText}>
+              Dica: Clique em qualquer ponto do mapa para selecionar o local da ocorrência.
+            </Text>
+            <TouchableOpacity 
+              style={styles.closeTipButton} 
+              onPress={() => setIsTipExpanded(false)}
+            >
+              <Text style={styles.closeTipText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity 
+            style={[styles.webTipMinimized, { top: 12, right: 12 }]} // Posicionado no canto direito superior
+            onPress={() => setIsTipExpanded(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.helpIconText}>?</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
@@ -207,12 +229,11 @@ export default function MapScreen({
       onLongPress={(e: any) => {
         const { latitude, longitude } = e.nativeEvent.coordinate;
         onMapSelectPoint(latitude, longitude);
-      }}>
-        onRegionChangeComplete={(region: any) => {
+      }}
+      onRegionChangeComplete={(region: any) => {
         onRegionChangeComplete(region.latitude, region.longitude);
       }}
     >
-      {/* Marcadores de avaliações existentes */}
       {reviews.map((review) => (
         <Marker
           key={review.id}
@@ -223,7 +244,6 @@ export default function MapScreen({
         />
       ))}
 
-      {/* Marcador selecionado temporário */}
       {selectedPoint ? (
         <Marker
           coordinate={selectedPoint}
@@ -246,22 +266,93 @@ const styles = StyleSheet.create({
     height: '100%',
     position: 'relative',
   },
-  webTip: {
+  // Alerta de área em destaque vermelho/escuro expandido no topo
+  webAlertExpanded: {
     position: 'absolute',
-    top: 10,
+    top: 64, // Fica logo abaixo da dica se ambas estiverem abertas simultaneamente
+    alignSelf: 'center',
+    backgroundColor: 'rgba(220, 38, 38, 0.95)', // Fundo avermelhado de atenção
+    paddingLeft: 16,
+    paddingRight: 10,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#ef4444',
+    zIndex: 1000,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    maxWidth: '90%',
+  },
+  webAlertText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  webTipExpanded: {
+    position: 'absolute',
+    top: 12,
     alignSelf: 'center',
     backgroundColor: 'rgba(30, 41, 59, 0.95)',
-    paddingHorizontal: 16,
+    paddingLeft: 16,
+    paddingRight: 10,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#334155',
     zIndex: 1000,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   webTipText: {
     color: '#cbd5e1',
     fontSize: 12,
     fontWeight: '600',
+  },
+  closeTipButton: {
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeTipText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  // Botões redondos flutuantes quando minimizados
+  webTipMinimized: {
+    position: 'absolute',
+    backgroundColor: '#1e293b',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.5,
+    borderColor: '#334155',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  helpIconText: {
+    color: '#2dd4bf',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  alertIconText: {
+    fontSize: 16,
   },
   fallbackContainer: {
     flex: 1,

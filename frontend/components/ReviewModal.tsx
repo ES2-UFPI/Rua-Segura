@@ -29,7 +29,8 @@ const RISK_LABELS = [
 interface ReviewModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (category: string, description: string) => Promise<void>;
+  // Atualizado para receber também as coordenadas possivelmente alteradas pelo usuário
+  onSubmit: (category: string, description: string, lat: number, lng: number) => Promise<void>;
   latitude: number;
   longitude: number;
 }
@@ -43,10 +44,28 @@ export default function ReviewModal({
 }: ReviewModalProps) {
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
   const [comment, setComment] = useState('');
+  
+  // Transformando coordenadas em estado para permitir alteração
+  const [inputLatitude, setInputLatitude] = useState(latitude.toString());
+  const [inputLongitude, setInputLongitude] = useState(longitude.toString());
+
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Sincroniza os estados caso o modal abra com novas coordenadas vindas do mapa
+  React.useEffect(() => {
+    if (visible) {
+      setInputLatitude(latitude.toString());
+      setInputLongitude(longitude.toString());
+    }
+  }, [visible, latitude, longitude]);
+
   const handleSave = async () => {
+    // Validações básicas de preenchimento (obrigatórios)
+    if (!inputLatitude.trim() || !inputLongitude.trim()) {
+      setErrorMsg('Por favor, insira a latitude e a longitude.');
+      return;
+    }
     if (!selectedLabel) {
       setErrorMsg('Por favor, selecione uma etiqueta de risco.');
       return;
@@ -56,11 +75,20 @@ export default function ReviewModal({
       return;
     }
 
+    const latParsed = parseFloat(inputLatitude.replace(',', '.'));
+    const lngParsed = parseFloat(inputLongitude.replace(',', '.'));
+
+    if (isNaN(latParsed) || isNaN(lngParsed)) {
+      setErrorMsg('Coordenadas inválidas. Use apenas números.');
+      return;
+    }
+
     setErrorMsg(null);
     setSubmitting(true);
 
     try {
-      await onSubmit(selectedLabel, comment);
+      // Passando os dados validados para a função onSubmit
+      await onSubmit(selectedLabel, comment, latParsed, lngParsed);
       // Reset state on success
       setSelectedLabel(null);
       setComment('');
@@ -70,6 +98,12 @@ export default function ReviewModal({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSelectLabel = (label: string) => {
+    setErrorMsg(null);
+    // Se clicar na mesma label, remove a seleção (deselecionar). Caso contrário, seleciona a nova.
+    setSelectedLabel((prev) => (prev === label ? null : label));
   };
 
   return (
@@ -96,15 +130,38 @@ export default function ReviewModal({
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            {/* Coordinate info card */}
-            <View style={styles.locationCard}>
-              <Ionicons name="location-sharp" size={18} color="#0f766e" />
-              <Text style={styles.locationText}>
-                Coordenadas selecionadas:{' '}
-                <Text style={styles.coordsHighlight}>
-                  {latitude.toFixed(5)}, {longitude.toFixed(5)}
-                </Text>
-              </Text>
+            
+            {/* Input de Coordenadas Alteráveis */}
+            <Text style={styles.sectionTitle}>Coordenadas do Local:</Text>
+            <View style={styles.coordinatesRow}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Latitude</Text>
+                <TextInput
+                  style={styles.coordInput}
+                  value={inputLatitude}
+                  onChangeText={(text) => {
+                    setInputLatitude(text);
+                    setErrorMsg(null);
+                  }}
+                  keyboardType="numeric"
+                  placeholder="Ex: -23.5505"
+                  placeholderTextColor="#9ca3af"
+                />
+              </View>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Longitude</Text>
+                <TextInput
+                  style={styles.coordInput}
+                  value={inputLongitude}
+                  onChangeText={(text) => {
+                    setInputLongitude(text);
+                    setErrorMsg(null);
+                  }}
+                  keyboardType="numeric"
+                  placeholder="Ex: -46.6333"
+                  placeholderTextColor="#9ca3af"
+                />
+              </View>
             </View>
 
             {/* Error Message */}
@@ -116,7 +173,7 @@ export default function ReviewModal({
             ) : null}
 
             {/* Section: Labels */}
-            <Text style={styles.sectionTitle}>Selecione a característica do local:</Text>
+            <Text style={styles.sectionTitle}>Selecione a característica do local *</Text>
             <View style={styles.chipsContainer}>
               {RISK_LABELS.map((item) => {
                 const isSelected = selectedLabel === item.label;
@@ -127,10 +184,7 @@ export default function ReviewModal({
                       styles.chip,
                       isSelected && { backgroundColor: item.color, borderColor: item.color },
                     ]}
-                    onPress={() => {
-                      setSelectedLabel(item.label);
-                      setErrorMsg(null);
-                    }}>
+                    onPress={() => handleSelectLabel(item.label)}>
                     <Ionicons
                       name={item.icon as any}
                       size={16}
@@ -145,7 +199,7 @@ export default function ReviewModal({
             </View>
 
             {/* Section: Comments */}
-            <Text style={styles.sectionTitle}>Comentários sobre o local:</Text>
+            <Text style={styles.sectionTitle}>Comentários sobre o local *</Text>
             <TextInput
               style={styles.textInput}
               placeholder="Descreva o que acontece neste local ou a situação..."
@@ -193,7 +247,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   bottomSheet: {
-    backgroundColor: '#1e293b', // Slate 800 dark mode background
+    backgroundColor: '#1e293b',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 8,
@@ -231,22 +285,29 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 20,
   },
-  locationCard: {
+  coordinatesRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0f172a',
-    padding: 12,
-    borderRadius: 12,
+    gap: 12,
     marginBottom: 16,
-    gap: 8,
   },
-  locationText: {
-    fontSize: 14,
+  inputContainer: {
+    flex: 1,
+  },
+  inputLabel: {
+    fontSize: 12,
     color: '#94a3b8',
+    marginBottom: 4,
+    fontWeight: '600',
   },
-  coordsHighlight: {
-    fontWeight: '700',
-    color: '#2dd4bf',
+  coordInput: {
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    color: '#2dd4bf', // Mantém o destaque ciano para as coordenadas
+    padding: 10,
+    fontSize: 14,
+    fontWeight: '600',
   },
   errorContainer: {
     flexDirection: 'row',

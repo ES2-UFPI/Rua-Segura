@@ -6,6 +6,9 @@ backend/.mypy_cache/
 *.pyc
 .env
 
+# Node dependencies
+node_modules/
+
 # IDE
 .idea/
 
