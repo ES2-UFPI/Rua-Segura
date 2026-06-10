@@ -1,20 +1,22 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface LocationReviewButtonProps {
   onPress: () => void;
   isSelected: boolean;
   disabled?: boolean;
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
 export default function LocationReviewButton({
   onPress,
   isSelected,
   disabled = false,
+  containerStyle,
 }: LocationReviewButtonProps) {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       <Pressable
         style={({ pressed }) => [
           styles.button,
@@ -39,7 +41,7 @@ export default function LocationReviewButton({
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
+    position: 'relative',
     bottom: 40,
     alignSelf: 'center',
     zIndex: 99,

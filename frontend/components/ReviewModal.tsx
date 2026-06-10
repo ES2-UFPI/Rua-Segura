@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   StyleSheet,
@@ -29,43 +29,36 @@ const RISK_LABELS = [
 interface ReviewModalProps {
   visible: boolean;
   onClose: () => void;
-  // Atualizado para receber também as coordenadas possivelmente alteradas pelo usuário
-  onSubmit: (category: string, description: string, lat: number, lng: number) => Promise<void>;
+  onDone: (category: string, description: string) => void;
   latitude: number;
   longitude: number;
+  initialCategory?: string;
+  initialDescription?: string;
 }
 
 export default function ReviewModal({
   visible,
   onClose,
-  onSubmit,
+  onDone,
   latitude,
   longitude,
+  initialCategory,
+  initialDescription,
 }: ReviewModalProps) {
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
   const [comment, setComment] = useState('');
-  
-  // Transformando coordenadas em estado para permitir alteração
-  const [inputLatitude, setInputLatitude] = useState(latitude.toString());
-  const [inputLongitude, setInputLongitude] = useState(longitude.toString());
-
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Sincroniza os estados caso o modal abra com novas coordenadas vindas do mapa
-  React.useEffect(() => {
+  useEffect(() => {
     if (visible) {
-      setInputLatitude(latitude.toString());
-      setInputLongitude(longitude.toString());
+      setSelectedLabel(initialCategory ?? null);
+      setComment(initialDescription ?? '');
+      setErrorMsg(null);
     }
-  }, [visible, latitude, longitude]);
+  }, [visible, initialCategory, initialDescription]);
 
   const handleSave = async () => {
-    // Validações básicas de preenchimento (obrigatórios)
-    if (!inputLatitude.trim() || !inputLongitude.trim()) {
-      setErrorMsg('Por favor, insira a latitude e a longitude.');
-      return;
-    }
     if (!selectedLabel) {
       setErrorMsg('Por favor, selecione uma etiqueta de risco.');
       return;
@@ -75,21 +68,11 @@ export default function ReviewModal({
       return;
     }
 
-    const latParsed = parseFloat(inputLatitude.replace(',', '.'));
-    const lngParsed = parseFloat(inputLongitude.replace(',', '.'));
-
-    if (isNaN(latParsed) || isNaN(lngParsed)) {
-      setErrorMsg('Coordenadas inválidas. Use apenas números.');
-      return;
-    }
-
     setErrorMsg(null);
     setSubmitting(true);
 
     try {
-      // Passando os dados validados para a função onSubmit
-      await onSubmit(selectedLabel, comment, latParsed, lngParsed);
-      // Reset state on success
+      await onDone(selectedLabel, comment);
       setSelectedLabel(null);
       setComment('');
       onClose();
@@ -131,38 +114,24 @@ export default function ReviewModal({
 
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             
-            {/* Input de Coordenadas Alteráveis */}
             <Text style={styles.sectionTitle}>Coordenadas do Local:</Text>
             <View style={styles.coordinatesRow}>
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Latitude</Text>
-                <TextInput
-                  style={styles.coordInput}
-                  value={inputLatitude}
-                  onChangeText={(text) => {
-                    setInputLatitude(text);
-                    setErrorMsg(null);
-                  }}
-                  keyboardType="numeric"
-                  placeholder="Ex: -23.5505"
-                  placeholderTextColor="#9ca3af"
-                />
+                <Text style={styles.coordValue}>{latitude.toFixed(5)}</Text>
               </View>
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Longitude</Text>
-                <TextInput
-                  style={styles.coordInput}
-                  value={inputLongitude}
-                  onChangeText={(text) => {
-                    setInputLongitude(text);
-                    setErrorMsg(null);
-                  }}
-                  keyboardType="numeric"
-                  placeholder="Ex: -46.6333"
-                  placeholderTextColor="#9ca3af"
-                />
+                <Text style={styles.coordValue}>{longitude.toFixed(5)}</Text>
               </View>
             </View>
+            <TouchableOpacity
+              style={styles.changeLocationButton}
+              onPress={onClose}
+              disabled={submitting}
+            >
+              <Text style={styles.changeLocationText}>Alterar no mapa</Text>
+            </TouchableOpacity>
 
             {/* Error Message */}
             {errorMsg ? (
@@ -299,15 +268,28 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     fontWeight: '600',
   },
-  coordInput: {
+  coordValue: {
     backgroundColor: '#0f172a',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#334155',
-    color: '#2dd4bf', // Mantém o destaque ciano para as coordenadas
+    color: '#2dd4bf',
     padding: 10,
     fontSize: 14,
     fontWeight: '600',
+  },
+  changeLocationButton: {
+    backgroundColor: 'rgba(30, 41, 59, 0.95)',
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderRadius: 12,
+    paddingVertical: 12,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  changeLocationText: {
+    color: '#2dd4bf',
+    fontWeight: '700',
   },
   errorContainer: {
     flexDirection: 'row',

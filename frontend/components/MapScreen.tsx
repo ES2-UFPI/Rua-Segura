@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Platform, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 
 export const getCategoryColor = (category: string): string => {
@@ -61,6 +61,7 @@ export default function MapScreen({
   // Estados de controle para a Dica e para o Alerta de Área
   const [isTipExpanded, setIsTipExpanded] = useState(false);
   const [isAlertExpanded, setIsAlertExpanded] = useState(true); // Começa mostrando na tela
+  const mapCenterRef = useRef<[number, number] | null>(null);
 
   // Minimiza a dica e o alerta automaticamente após 5 segundos
   useEffect(() => {
@@ -97,11 +98,13 @@ export default function MapScreen({
         (container as any)._leaflet_map.remove();
       }
 
-      const mapCenter: [number, number] = selectedPoint
-        ? [selectedPoint.latitude, selectedPoint.longitude]
-        : [-5.0920, -42.8038];
+      const initialCenter: [number, number] = mapCenterRef.current
+        ?? (selectedPoint
+          ? [selectedPoint.latitude, selectedPoint.longitude]
+          : [-5.0920, -42.8038]);
+      mapCenterRef.current = initialCenter;
 
-      const map = L.map(webMapId).setView(mapCenter, 14);
+      const map = L.map(webMapId).setView(initialCenter, 14);
       (container as any)._leaflet_map = map;
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -114,6 +117,7 @@ export default function MapScreen({
 
       map.on('moveend', () => {
         const center = map.getCenter();
+        mapCenterRef.current = [center.lat, center.lng];
         onRegionChangeComplete(center.lat, center.lng);
       });
 
@@ -160,7 +164,9 @@ export default function MapScreen({
 
         L.marker([selectedPoint.latitude, selectedPoint.longitude], { icon: selectedIcon })
           .addTo(map)
-          .bindPopup('<b>Ponto Selecionado</b><br/>Clique no botão abaixo para avaliar.')
+          .bindPopup(
+            '<b>Ponto Selecionado</b><b><br/>Latitude: </b>' + selectedPoint.latitude.toFixed(5) + '<b> | Longitude: </b>' + selectedPoint.longitude.toFixed(5) + '<br/>Clique no botão abaixo para avaliar.'
+          )
           .openPopup();
       }
     };
