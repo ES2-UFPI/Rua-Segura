@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import MapScreen from '@/components/MapScreen';
 import LocationReviewButton from '@/components/LocationReviewButton';
 import ReviewModal from '@/components/ReviewModal';
+import ConfirmReviewModal from '@/components/ConfirmReviewModal';
 import RiskIndicator from '@/components/RiskIndicator';
 import { reviewApi, LocationReviewResponse, RiskResponse } from '@/services/api';
 
@@ -19,6 +20,8 @@ export default function HomeScreen() {
   const [reviews, setReviews] = useState<LocationReviewResponse[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<{ latitude: number; longitude: number } | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  const [pendingReview, setPendingReview] = useState<{ category: string; description: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [backendStatus, setBackendStatus] = useState<'online' | 'offline'>('offline');
 
@@ -86,6 +89,30 @@ export default function HomeScreen() {
     setModalVisible(true);
   };
 
+  const handleReviewFormDone = (category: string, description: string) => {
+    setModalVisible(false);
+    setPendingReview({ category, description });
+    setConfirmModalVisible(true);
+  };
+
+  const handleConfirm = async () => {
+    if (!selectedPoint || !pendingReview) return;
+    setConfirmModalVisible(false);
+
+    try {
+      await handleReviewSubmit(pendingReview.category, pendingReview.description);
+      setPendingReview(null);
+    } catch (error) {
+      console.error('Erro ao confirmar avaliação:', error);
+      setPendingReview(null);
+    }
+  };
+
+  const handleEditReview = () => {
+    setConfirmModalVisible(false);
+    setModalVisible(true);
+  };
+
   const handleReviewSubmit = async (category: string, description: string) => {
     if (!selectedPoint) return;
 
@@ -145,34 +172,48 @@ export default function HomeScreen() {
         <RiskIndicator level={areaRisk.level} score={areaRisk.score} />
       </View>
 
-      {/* Info indicator if point selected */}
-      {selectedPoint ? (
-        <View style={styles.selectedPointCard}>
-          <Text style={styles.selectedPointText}>
-            Ponto selecionado na latitude: <Text style={styles.coordHighlight}>{selectedPoint.latitude.toFixed(5)}</Text>
-          </Text>
-          <TouchableOpacity onPress={() => setSelectedPoint(null)} style={styles.clearPointButton}>
-            <Ionicons name="close-circle" size={18} color="#94a3b8" />
+      {/* Floating Action Buttons */}
+      <View style={styles.actionButtonsContainer}>
+        <LocationReviewButton
+          isSelected={selectedPoint !== null}
+          onPress={handleReviewButtonClick}
+        />
+        {selectedPoint ? (
+          <TouchableOpacity
+            style={styles.clearSelectionButton}
+            onPress={() => setSelectedPoint(null)}
+            accessibilityLabel="Remover seleção"
+          >
+            <Ionicons name="close-circle" size={24} color="#ffffff" />
+            <Text style={styles.clearSelectionButtonText}>Remover seleção</Text>
           </TouchableOpacity>
-        </View>
-      ) : null}
-
-      {/* Floating Action Button */}
-      <LocationReviewButton
-        isSelected={selectedPoint !== null}
-        onPress={handleReviewButtonClick}
-      />
+        ) : null}
+      </View>
 
       {/* Form BottomSheet Modal */}
-      {selectedPoint ? (
-        <ReviewModal
-          visible={modalVisible}
-          onClose={() => setModalVisible(false)}
-          onSubmit={handleReviewSubmit}
-          latitude={selectedPoint.latitude}
-          longitude={selectedPoint.longitude}
-        />
-      ) : null}
+      <ReviewModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onDone={handleReviewFormDone}
+        latitude={selectedPoint?.latitude ?? 0}
+        longitude={selectedPoint?.longitude ?? 0}
+        initialCategory={pendingReview?.category}
+        initialDescription={pendingReview?.description}
+      />
+
+      <ConfirmReviewModal
+        visible={confirmModalVisible}
+        category={pendingReview?.category ?? ''}
+        description={pendingReview?.description ?? ''}
+        latitude={selectedPoint?.latitude ?? 0}
+        longitude={selectedPoint?.longitude ?? 0}
+        onConfirm={handleConfirm}
+        onEdit={handleEditReview}
+        onClose={() => {
+          setConfirmModalVisible(false);
+          setPendingReview(null);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -228,6 +269,56 @@ const styles = StyleSheet.create({
   mapContainer: {
     flex: 1,
     position: 'relative',
+  },
+  actionButtonsContainer: {
+    position: 'absolute',
+    bottom: 40,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    zIndex: 99,
+    elevation: 8,
+  },
+  clearSelectionFloatingButton: {
+    position: 'relative',
+    bottom: 40,
+    backgroundColor: '#1f2937',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+    zIndex: 100,
+  },
+  clearSelectionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 30,
+    gap: 8,
+    backgroundColor: '#1f2937',
+    borderWidth: 1,
+    borderColor: '#334155',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  clearSelectionButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   selectedPointCard: {
     position: 'absolute',
