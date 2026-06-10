@@ -42,7 +42,7 @@ export default function LocationReviewButton({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    bottom: 40,
+    bottom: 0,
     alignSelf: 'center',
     zIndex: 99,
     elevation: 8,
