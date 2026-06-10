@@ -98,13 +98,13 @@ export default function ReviewModal({
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.overlay}>
-        
+
         {/* Backdrop clickable to close */}
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
 
         <View style={styles.bottomSheet}>
           <View style={styles.dragIndicator} />
-          
+
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Avaliar Segurança Local</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -113,7 +113,7 @@ export default function ReviewModal({
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            
+
             <Text style={styles.sectionTitle}>Coordenadas do Local:</Text>
             <View style={styles.coordinatesRow}>
               <View style={styles.inputContainer}>
@@ -133,13 +133,7 @@ export default function ReviewModal({
               <Text style={styles.changeLocationText}>Alterar no mapa</Text>
             </TouchableOpacity>
 
-            {/* Error Message */}
-            {errorMsg ? (
-              <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={18} color="#b42318" />
-                <Text style={styles.errorText}>{errorMsg}</Text>
-              </View>
-            ) : null}
+
 
             {/* Section: Labels */}
             <Text style={styles.sectionTitle}>Selecione a característica do local *</Text>
@@ -181,6 +175,14 @@ export default function ReviewModal({
                 setErrorMsg(null);
               }}
             />
+
+            {/* Error Message */}
+            {errorMsg ? (
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle" size={18} color="#b42318" />
+                <Text style={styles.errorText}>{errorMsg}</Text>
+              </View>
+            ) : null}
 
             {/* Actions */}
             <View style={styles.actionRow}>

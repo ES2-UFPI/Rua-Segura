@@ -15,8 +15,10 @@ import ReviewModal from '@/components/ReviewModal';
 import ConfirmReviewModal from '@/components/ConfirmReviewModal';
 import RiskIndicator from '@/components/RiskIndicator';
 import { reviewApi, LocationReviewResponse, RiskResponse } from '@/services/api';
+import { useLocation } from '@/hooks/useLocation';
 
 export default function HomeScreen() {
+  const { latitude: userLat, longitude: userLng, getUserLocation } = useLocation();
   const [reviews, setReviews] = useState<LocationReviewResponse[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<{ latitude: number; longitude: number } | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -168,6 +170,8 @@ export default function HomeScreen() {
           selectedPoint={selectedPoint}
           onMapSelectPoint={handleMapSelectPoint}
           onRegionChangeComplete={handleRegionChangeComplete}
+          userLocation={userLat !== null && userLng !== null ? { latitude: userLat, longitude: userLng } : null}
+          onRecenterPress={getUserLocation}
         />
         <RiskIndicator level={areaRisk.level} score={areaRisk.score} />
       </View>
