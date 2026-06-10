@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback} from 'react';
 import {
   StyleSheet,
   View,
@@ -12,7 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import MapScreen from '@/components/MapScreen';
 import LocationReviewButton from '@/components/LocationReviewButton';
 import ReviewModal from '@/components/ReviewModal';
-import { reviewApi, LocationReviewResponse } from '@/services/api';
+import RiskIndicator from '@/components/RiskIndicator';
+import { reviewApi, LocationReviewResponse, RiskResponse } from '@/services/api';
 
 export default function HomeScreen() {
   const [reviews, setReviews] = useState<LocationReviewResponse[]>([]);
@@ -20,6 +21,9 @@ export default function HomeScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [backendStatus, setBackendStatus] = useState<'online' | 'offline'>('offline');
+
+  // Estado para armazenar o risco da região visível
+  const [areaRisk, setAreaRisk] = useState<RiskResponse>({ level: 'AZUL', score: 0, count: 0 });
 
   // Carrega as avaliações do backend
   const loadReviews = async () => {
@@ -56,6 +60,16 @@ export default function HomeScreen() {
   const handleMapSelectPoint = (latitude: number, longitude: number) => {
     setSelectedPoint({ latitude, longitude });
   };
+
+  // Gatilho que executa a regra de cálculo no Backend
+  const handleRegionChangeComplete = useCallback(async (latitude: number, longitude: number) => {
+    try {
+      const riskData = await reviewApi.getAreaRisk(latitude, longitude);
+      setAreaRisk(riskData);
+    } catch (error) {
+      console.error("Erro na orquestração do risco:", error);
+    }
+  }, []);
 
   const handleReviewButtonClick = () => {
     if (!selectedPoint) {
@@ -126,7 +140,9 @@ export default function HomeScreen() {
           reviews={reviews}
           selectedPoint={selectedPoint}
           onMapSelectPoint={handleMapSelectPoint}
+          onRegionChangeComplete={handleRegionChangeComplete}
         />
+        <RiskIndicator level={areaRisk.level} score={areaRisk.score} />
       </View>
 
       {/* Info indicator if point selected */}

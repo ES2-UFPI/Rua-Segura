@@ -48,12 +48,14 @@ interface MapScreenProps {
   }>;
   selectedPoint: { latitude: number; longitude: number } | null;
   onMapSelectPoint: (latitude: number, longitude: number) => void;
+  onRegionChangeComplete: (latitude: number, longitude: number) => void;
 }
 
 export default function MapScreen({
   reviews,
   selectedPoint,
   onMapSelectPoint,
+  onRegionChangeComplete,
 }: MapScreenProps) {
   const isWeb = Platform.OS === 'web';
   const webMapId = 'leaflet-map-container';
@@ -98,6 +100,12 @@ export default function MapScreen({
       // Clique no mapa para capturar ponto
       map.on('click', (e: any) => {
         onMapSelectPoint(e.latlng.lat, e.latlng.lng);
+      });
+
+      // Detecta quando o usuário termina de arrastar o mapa na Web
+      map.on('moveend', () => {
+        const center = map.getCenter();
+        onRegionChangeComplete(center.lat, center.lng);
       });
 
       // Renderiza marcadores das avaliações existentes
@@ -200,6 +208,10 @@ export default function MapScreen({
         const { latitude, longitude } = e.nativeEvent.coordinate;
         onMapSelectPoint(latitude, longitude);
       }}>
+        onRegionChangeComplete={(region: any) => {
+        onRegionChangeComplete(region.latitude, region.longitude);
+      }}
+    >
       {/* Marcadores de avaliações existentes */}
       {reviews.map((review) => (
         <Marker
