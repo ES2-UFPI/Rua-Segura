@@ -64,7 +64,7 @@ export default function MapScreen({
   const webMapId = 'leaflet-map-container';
 
   // Estados de controle para a Dica e para o Alerta de Área
-  const [isTipExpanded, setIsTipExpanded] = useState(false);
+  const [isTipExpanded, setIsTipExpanded] = useState(true); // Começa mostrando na tela
   const [isAlertExpanded, setIsAlertExpanded] = useState(true); // Começa mostrando na tela
   const mapCenterRef = useRef<[number, number] | null>(null);
 
@@ -125,15 +125,13 @@ export default function MapScreen({
 
   // Minimiza a dica e o alerta automaticamente após 5 segundos
   useEffect(() => {
-    if (!isWeb) return;
-
     const timer = setTimeout(() => {
       setIsTipExpanded(false);
       setIsAlertExpanded(false); // Recolhe após o tempo determinado
     }, 5000);
 
     return () => clearTimeout(timer);
-  }, [isWeb]);
+  }, []);
 
   // --- IMPLEMENTAÇÃO WEB (LEAFLET) ---
   // 1. Inicializa o mapa Leaflet uma única vez
@@ -322,7 +320,9 @@ export default function MapScreen({
         {isTipExpanded ? (
           <View style={styles.webTipExpanded}>
             <Text style={styles.webTipText}>
-              Dica: Clique em qualquer ponto do mapa para selecionar o local da ocorrência.
+              {Platform.OS === 'web'
+                ? 'Dica: Clique em qualquer ponto do mapa para selecionar o local da ocorrência.'
+                : 'Dica: Toque longo em qualquer ponto do mapa para selecionar o local da ocorrência.'}
             </Text>
             <TouchableOpacity
               style={styles.closeTipButton}
@@ -407,6 +407,29 @@ export default function MapScreen({
           />
         ) : null}
       </MapView>
+
+      {/* ================= DICA DO MAPA NATIVE ================= */}
+      {isTipExpanded ? (
+        <View style={styles.webTipExpanded}>
+          <Text style={styles.webTipText}>
+            Dica: Toque longo em qualquer ponto do mapa para selecionar o local da ocorrência.
+          </Text>
+          <TouchableOpacity
+            style={styles.closeTipButton}
+            onPress={() => setIsTipExpanded(false)}
+          >
+            <Text style={styles.closeTipText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={[styles.webTipMinimized, { top: 12, right: 12 }]}
+          onPress={() => setIsTipExpanded(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.helpIconText}>?</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Floating Recenter Button for Native */}
       <TouchableOpacity
@@ -499,11 +522,13 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.2,
     shadowRadius: 4,
+    maxWidth: '90%',
   },
   webTipText: {
     color: '#e1d2cbff',
     fontSize: 12,
     fontWeight: '600',
+    flexShrink: 1,
   },
   closeTipButton: {
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
