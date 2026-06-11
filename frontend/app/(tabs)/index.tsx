@@ -7,6 +7,7 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import MapScreen from '@/components/MapScreen';
@@ -16,21 +17,33 @@ import ConfirmReviewModal from '@/components/ConfirmReviewModal';
 import RiskIndicator from '@/components/RiskIndicator';
 import { reviewApi, LocationReviewResponse, RiskResponse } from '@/services/api';
 import { useLocation } from '@/hooks/useLocation';
+import { NotificationFacade } from '@/services/notifications/NotificationFacade';
+import AlertScreen from '@/components/alerts/AlertScreen';
+import { alertApi, AlertPayload } from '@/services/alertApi';
 
 export default function HomeScreen() {
-  const { latitude: userLat, longitude: userLng, getUserLocation } = useLocation();
+  const { 
+    latitude: userLat, 
+    longitude: userLng, 
+    getUserLocation, 
+    startBackgroundLocation 
+  } = useLocation();
+  
   const [reviews, setReviews] = useState<LocationReviewResponse[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<{ latitude: number; longitude: number } | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+    const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [pendingReview, setPendingReview] = useState<{ category: string; description: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [backendStatus, setBackendStatus] = useState<'online' | 'offline'>('offline');
-
-  // Estado para armazenar o risco da região visível
   const [areaRisk, setAreaRisk] = useState<RiskResponse>({ level: 'AZUL', score: 0, count: 0 });
+  const [alerts, setAlerts] = useState<AlertPayload[]>([]);
 
-  // Carrega as avaliações do backend
+  useEffect(() => {
+    console.log('[HomeScreen] Inicializando serviços de rastreamento...');
+    void startBackgroundLocation(); 
+  }, []);
+
   const loadReviews = async () => {
     try {
       setLoading(true);
@@ -57,6 +70,40 @@ export default function HomeScreen() {
     }
   };
 
+  const [lastAlertId, setLastAlertId] = useState<string | null>(null);
+
+  const loadCriticalAlerts = async (lat: number, lng: number) => {
+    try {
+      const activeAlerts = await alertApi.getAlerts({ latitude: lat, longitude: lng });
+      
+      if (activeAlerts && activeAlerts.length > 0) {
+        const novoAlerta = activeAlerts[0];
+
+        if (novoAlerta.id === lastAlertId || alerts.some(a => a.id === novoAlerta.id)) {
+          console.log('[HomeScreen] Alerta repetido ignorado para evitar loop.');
+          return;
+        }
+
+        setLastAlertId(novoAlerta.id);
+        await NotificationFacade.processarAlertaDeRisco(novoAlerta, setAlerts);
+      }
+    } catch (error) {
+      console.log('[Alerts] Servidor offline ou rota não implementada no back ainda.');
+    }
+  };
+
+  useEffect(() => {
+    if (userLat !== null && userLng !== null) {
+      void loadCriticalAlerts(userLat, userLng);
+    }
+  }, [userLat, userLng]); 
+
+  const handleDismissAlert = (alertId: string) => {
+    console.log(`[HomeScreen] Alerta ${alertId} fechado pelo usuário.`);
+    setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+
+  };
+
   useEffect(() => {
     void loadReviews();
   }, []);
@@ -65,14 +112,16 @@ export default function HomeScreen() {
     setSelectedPoint({ latitude, longitude });
   };
 
-  const handleRegionChangeComplete = useCallback(async (latitude: number, longitude: number) => {
-    try {
-      const riskData = await reviewApi.getAreaRisk(latitude, longitude);
-      setAreaRisk(riskData);
-    } catch (error) {
-      console.error("Erro na orquestração do risco:", error);
-    }
-  }, []);
+const handleRegionChangeComplete = useCallback(async (latitude: number, longitude: number) => {
+  try {
+    const riskData = await reviewApi.getAreaRisk(latitude, longitude);
+    setAreaRisk(riskData);
+
+  } catch (error) {
+    console.error("Erro na orquestração do risco:", error);
+  }
+}, []);
+
 
   const handleReviewButtonClick = () => {
     if (!selectedPoint) {
@@ -171,58 +220,39 @@ export default function HomeScreen() {
           onRecenterPress={getUserLocation}
         />
         <RiskIndicator level={areaRisk.level} score={areaRisk.score} />
-
-        {/* MUDANÇA AQUI: Colocamos o container de botões DENTRO do mapContainer 
-            para que o absoluto flutue em relação ao mapa, e não à tela toda! */}
-        <View style={styles.actionButtonsContainer}>
-          <LocationReviewButton
-            isSelected={selectedPoint !== null}
-            onPress={handleReviewButtonClick}
-          />
-          
-          {selectedPoint ? (
-            <TouchableOpacity
-              style={styles.clearSelectionButton}
-              onPress={() => setSelectedPoint(null)}
-              accessibilityLabel="Remover seleção"
-            >
-              <Ionicons name="close-circle" size={24} color="#ffffff" />
-              <Text style={styles.clearSelectionButtonText}>Cancelar</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
+        
+        {/* Componente de alertas flutuantes no mapa */}
+        <AlertScreen alerts={alerts} onDismiss={handleDismissAlert} />
       </View>
 
-      {/* Barra de Navegação Inferior Estética */}
-      <View style={styles.bottomTabBar}>
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
-          <Ionicons name="map" size={22} color="#2dd4bf" />
-          <Text style={[styles.tabText, styles.tabTextActive]}>Mapa</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
-          <Ionicons name="star" size={22} color="#94a3b8" />
-          <Text style={styles.tabText}>Favoritos</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
-          <Ionicons name="person" size={22} color="#94a3b8" />
-          <Text style={styles.tabText}>Perfil</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Modais */}
-      {selectedPoint ? (
-        <ReviewModal
-          visible={modalVisible}
-          onClose={() => setModalVisible(false)}
-          onDone={handleReviewFormDone}
-          latitude={selectedPoint.latitude}
-          longitude={selectedPoint.longitude}
-          initialCategory={pendingReview?.category}
-          initialDescription={pendingReview?.description}
+      {/* Floating Action Buttons */}
+      <View style={styles.actionButtonsContainer}>
+        <LocationReviewButton
+          isSelected={selectedPoint !== null}
+          onPress={handleReviewButtonClick}
         />
-      ) : null}
+        {selectedPoint ? (
+          <TouchableOpacity
+            style={styles.clearSelectionButton}
+            onPress={() => setSelectedPoint(null)}
+            accessibilityLabel="Remover selection"
+          >
+            <Ionicons name="close-circle" size={24} color="#ffffff" />
+            <Text style={styles.clearSelectionButtonText}>Cancelar</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {/* Form BottomSheet Modal */}
+      <ReviewModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onDone={handleReviewFormDone}
+        latitude={selectedPoint?.latitude ?? 0}
+        longitude={selectedPoint?.longitude ?? 0}
+        initialCategory={pendingReview?.category}
+        initialDescription={pendingReview?.description}
+      />
 
       <ConfirmReviewModal
         visible={confirmModalVisible}
@@ -242,10 +272,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
+  container: { flex: 1, backgroundColor: '#0f172a' },
   header: {
     height: Platform.OS === 'ios' ? 50 : 60,
     backgroundColor: '#1e293b',
@@ -257,17 +284,8 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
     zIndex: 100,
   },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerTitle: {
-    color: '#f8fafc',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerTitle: { color: '#f8fafc', fontSize: 18, fontWeight: '800', letterSpacing: 0.5 },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -278,24 +296,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  statusText: {
-    color: '#94a3b8',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  mapContainer: {
-    flex: 1,
-    position: 'relative',
-  },
+  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+  statusText: { color: '#94a3b8', fontSize: 11, fontWeight: '600' },
+  mapContainer: { flex: 1, position: 'relative' },
   actionButtonsContainer: {
     position: 'absolute',
-    bottom: 16, // Espaçamento perfeito medido a partir da base do mapa
+    bottom: 40,
     alignSelf: 'center',
     flexDirection: 'row',
     gap: 10,
@@ -319,36 +325,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
-  clearSelectionButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  bottomTabBar: {
-    backgroundColor: '#1e293b',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingTop: 10, 
-    paddingBottom: Platform.OS === 'ios' ? 24 : 14,
-    borderTopWidth: 1,
-    borderColor: '#334155',
-    zIndex: 100,
-  },
-  tabItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingVertical: 4,
-  },
-  tabText: {
-    color: '#94a3b8',
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  tabTextActive: {
-    color: '#2dd4bf',
-  },
+  clearSelectionButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
 });
