@@ -32,7 +32,7 @@ export default function LocationReviewButton({
           color="#ffffff"
         />
         <Text style={styles.text}>
-          {isSelected ? 'Avaliar' : 'Registrar Avaliação'}
+          {isSelected ? 'Avaliar' : 'Registrar Ocorrência'}
         </Text>
       </Pressable>
     </View>

@@ -305,12 +305,12 @@ export default function MapScreen({
         )}
 
         <TouchableOpacity
-          style={[styles.recenterButton, sidePosition]} // Troca de lado!
+          style={[styles.recenterButton, sidePosition]}
           onPress={handleRecenter}
           activeOpacity={0.8}
           accessibilityLabel="Centralizar na minha localização"
         >
-          <Ionicons name="locate" size={22} color="#2dd4bf" />
+          <Ionicons name="walk" size={22} color="#2dd4bf" />
         </TouchableOpacity>
       </View>
     );
@@ -337,6 +337,9 @@ export default function MapScreen({
         ref={nativeMapRef}
         style={styles.map}
         initialRegion={defaultRegion}
+        showsUserLocation={true}        
+        showsMyLocationButton={false}   
+        followsUserLocation={false}     
         onLongPress={(e: any) => {
           const { latitude, longitude } = e.nativeEvent.coordinate;
           onMapSelectPoint(latitude, longitude);
