@@ -1,19 +1,20 @@
-import React, { useEffect, useState, useCallback} from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   Alert,
   Platform,
-  SafeAreaView,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import MapScreen from '@/components/MapScreen';
 import LocationReviewButton from '@/components/LocationReviewButton';
 import ReviewModal from '@/components/ReviewModal';
 import ConfirmReviewModal from '@/components/ConfirmReviewModal';
 import RiskIndicator from '@/components/RiskIndicator';
+import EmergencyButton from '@/components/EmergencyButton';
 import { reviewApi, LocationReviewResponse, RiskResponse } from '@/services/api';
 import { useLocation } from '@/hooks/useLocation';
 
@@ -26,11 +27,11 @@ export default function HomeScreen() {
   const [pendingReview, setPendingReview] = useState<{ category: string; description: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [backendStatus, setBackendStatus] = useState<'online' | 'offline'>('offline');
-
-  // Estado para armazenar o risco da região visível
   const [areaRisk, setAreaRisk] = useState<RiskResponse>({ level: 'AZUL', score: 0, count: 0 });
 
-  // Carrega as avaliações do backend
+  // Estado de acessibilidade: true = Destro (Padrão), false = Canhoto
+  const [isRightHanded, setIsRightHanded] = useState(true);
+
   const loadReviews = async () => {
     try {
       setLoading(true);
@@ -40,7 +41,6 @@ export default function HomeScreen() {
     } catch (error) {
       setBackendStatus('offline');
       console.error('Falha ao obter avaliações:', error);
-      // Fallback local caso o backend esteja inacessível no primeiro load
       if (reviews.length === 0) {
         setReviews([
           {
@@ -66,7 +66,6 @@ export default function HomeScreen() {
     setSelectedPoint({ latitude, longitude });
   };
 
-  // Gatilho que executa a regra de cálculo no Backend
   const handleRegionChangeComplete = useCallback(async (latitude: number, longitude: number) => {
     try {
       const riskData = await reviewApi.getAreaRisk(latitude, longitude);
@@ -126,9 +125,8 @@ export default function HomeScreen() {
         longitude: selectedPoint.longitude,
       });
 
-      // Atualiza o estado local com a nova ocorrência vinda do backend
       setReviews((prev) => [newReview, ...prev]);
-      setSelectedPoint(null); // Limpa o marcador selecionado
+      setSelectedPoint(null);
       
       if (Platform.OS === 'web') {
         alert('Avaliação cadastrada com sucesso!');
@@ -140,6 +138,13 @@ export default function HomeScreen() {
       throw error;
     }
   };
+
+  const handleEmergencyPress = () => {
+    Alert.alert("Emergência", "Botão de emergência acionado! (Ação apenas estética nesta sprint).");
+  };
+
+  // Posição lateral dinâmica repassada aos componentes e ao botão de emergência
+  const dynamicSideStyle = isRightHanded ? { right: 16 } : { left: 16 };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -172,38 +177,87 @@ export default function HomeScreen() {
           onRegionChangeComplete={handleRegionChangeComplete}
           userLocation={userLat !== null && userLng !== null ? { latitude: userLat, longitude: userLng } : null}
           onRecenterPress={getUserLocation}
+          isRightHanded={isRightHanded} // Passa a orientação para mudar os botões internos de lado!
         />
-        <RiskIndicator level={areaRisk.level} score={areaRisk.score} />
+
+        {/* Passa a orientação para o banner e seu botão colapsado mudarem de lado */}
+        <RiskIndicator 
+          level={areaRisk.level} 
+          score={areaRisk.score} 
+          isRightHanded={isRightHanded} 
+        />
+
+        {/* Único Balão de Controle do Modo Destro/Canhoto - Posicionado abaixo do botão de autocentralização */}
+        <TouchableOpacity 
+          style={[
+            styles.handSelectorBubble, 
+            isRightHanded ? { right: 12 } : { left: 12 }
+          ]}
+          onPress={() => setIsRightHanded(!isRightHanded)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="hand-left-outline" size={14} color="#2dd4bf" />
+          <Text style={styles.handSelectorText}>
+            {isRightHanded ? 'Destro' : 'Canhoto'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Container de Ações Central (Registrar Avaliação / Cancelar) */}
+        <View style={styles.actionButtonsContainer}>
+          <LocationReviewButton
+            isSelected={selectedPoint !== null}
+            onPress={handleReviewButtonClick}
+          />
+          
+          {selectedPoint ? (
+            <TouchableOpacity
+              style={styles.clearSelectionButton}
+              onPress={() => setSelectedPoint(null)}
+              accessibilityLabel="Remover seleção"
+            >
+              <Ionicons name="close-circle" size={24} color="#ffffff" />
+              <Text style={styles.clearSelectionButtonText}>Cancelar</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {/* Botão de Emergência mudando de lado */}
+        <EmergencyButton
+          onPress={handleEmergencyPress}
+          style={dynamicSideStyle}
+        />
       </View>
 
-      {/* Floating Action Buttons */}
-      <View style={styles.actionButtonsContainer}>
-        <LocationReviewButton
-          isSelected={selectedPoint !== null}
-          onPress={handleReviewButtonClick}
-        />
-        {selectedPoint ? (
-          <TouchableOpacity
-            style={styles.clearSelectionButton}
-            onPress={() => setSelectedPoint(null)}
-            accessibilityLabel="Remover seleção"
-          >
-            <Ionicons name="close-circle" size={24} color="#ffffff" />
-            <Text style={styles.clearSelectionButtonText}>Cancelar</Text>
-          </TouchableOpacity>
-        ) : null}
+      {/* Barra de Navegação Inferior Estética */}
+      <View style={styles.bottomTabBar}>
+        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
+          <Ionicons name="map" size={22} color="#2dd4bf" />
+          <Text style={[styles.tabText, styles.tabTextActive]}>Mapa</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
+          <Ionicons name="star" size={22} color="#94a3b8" />
+          <Text style={styles.tabText}>Favoritos</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
+          <Ionicons name="person" size={22} color="#94a3b8" />
+          <Text style={styles.tabText}>Perfil</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Form BottomSheet Modal */}
-      <ReviewModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        onDone={handleReviewFormDone}
-        latitude={selectedPoint?.latitude ?? 0}
-        longitude={selectedPoint?.longitude ?? 0}
-        initialCategory={pendingReview?.category}
-        initialDescription={pendingReview?.description}
-      />
+      {/* Modais */}
+      {selectedPoint ? (
+        <ReviewModal
+          visible={modalVisible}
+          onClose={() => setModalVisible(false)}
+          onDone={handleReviewFormDone}
+          latitude={selectedPoint.latitude}
+          longitude={selectedPoint.longitude}
+          initialCategory={pendingReview?.category}
+          initialDescription={pendingReview?.description}
+        />
+      ) : null}
 
       <ConfirmReviewModal
         visible={confirmModalVisible}
@@ -225,7 +279,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a', // Dark slate background
+    backgroundColor: '#0f172a',
   },
   header: {
     height: Platform.OS === 'ios' ? 50 : 60,
@@ -274,32 +328,38 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
-  actionButtonsContainer: {
+  handSelectorBubble: {
     position: 'absolute',
-    bottom: 40,
-    alignSelf: 'center',
+    top: 154, // Alinhado perfeitamente logo abaixo do botão de autocentralização (que fica em top: 104)
     flexDirection: 'row',
-    gap: 10,
-    zIndex: 99,
-    elevation: 8,
-  },
-  clearSelectionFloatingButton: {
-    position: 'relative',
-    bottom: 40,
-    backgroundColor: '#1f2937',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#334155',
     shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    zIndex: 1000,
+    elevation: 5,
+    gap: 4,
+  },
+  handSelectorText: {
+    color: '#f8fafc',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  actionButtonsContainer: {
+    position: 'absolute',
+    bottom: 16,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    zIndex: 98,
     elevation: 8,
-    zIndex: 100,
   },
   clearSelectionButton: {
     flexDirection: 'row',
@@ -324,37 +384,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-  selectedPointCard: {
-    position: 'absolute',
-    top: 76,
-    left: 16,
-    right: 16,
-    backgroundColor: 'rgba(30, 41, 59, 0.95)',
-    borderWidth: 1,
-    borderColor: '#ea580c',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+  bottomTabBar: {
+    backgroundColor: '#1e293b',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 5,
-    zIndex: 90,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 14,
+    borderTopWidth: 1,
+    borderColor: '#334155',
+    zIndex: 100,
   },
-  selectedPointText: {
-    color: '#e2e8f0',
-    fontSize: 13,
+  tabItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    paddingVertical: 4,
+  },
+  tabText: {
+    color: '#94a3b8',
+    fontSize: 11,
     fontWeight: '600',
+    marginTop: 4,
   },
-  coordHighlight: {
-    color: '#ea580c',
-    fontWeight: '700',
-  },
-  clearPointButton: {
-    padding: 2,
+  tabTextActive: {
+    color: '#2dd4bf',
   },
 });

@@ -50,6 +50,7 @@ interface MapScreenProps {
   onRegionChangeComplete: (latitude: number, longitude: number) => void;
   userLocation: { latitude: number; longitude: number } | null;
   onRecenterPress?: () => Promise<void> | void;
+  isRightHanded?: boolean; // Recebe a preferência manual para inverter os lados
 }
 
 export default function MapScreen({
@@ -59,16 +60,14 @@ export default function MapScreen({
   onRegionChangeComplete,
   userLocation,
   onRecenterPress,
+  isRightHanded = true,
 }: MapScreenProps) {
   const isWeb = Platform.OS === 'web';
   const webMapId = 'leaflet-map-container';
 
-  // Estados de controle para a Dica e para o Alerta de Área
-  const [isTipExpanded, setIsTipExpanded] = useState(true); // Começa mostrando na tela
-  const [isAlertExpanded, setIsAlertExpanded] = useState(true); // Começa mostrando na tela
+  const [isTipExpanded, setIsTipExpanded] = useState(true);
   const mapCenterRef = useRef<[number, number] | null>(null);
 
-  // Refs para controle do mapa Leaflet e Native
   const webMapRef = useRef<any>(null);
   const webMarkersRef = useRef<any[]>([]);
   const webSelectedMarkerRef = useRef<any>(null);
@@ -78,7 +77,6 @@ export default function MapScreen({
 
   const [mapReady, setMapReady] = useState(false);
 
-  // Mantém os callbacks atualizados em refs para evitar re-registro ou stale closures
   const onMapSelectPointRef = useRef(onMapSelectPoint);
   const onRegionChangeCompleteRef = useRef(onRegionChangeComplete);
 
@@ -92,8 +90,6 @@ export default function MapScreen({
 
   const handleRecenter = async () => {
     forceCenterRef.current = true;
-
-    // Reseta o flag forceCenterRef após 3 segundos caso a coordenada do usuário não mude
     setTimeout(() => {
       forceCenterRef.current = false;
     }, 3000);
@@ -123,18 +119,13 @@ export default function MapScreen({
     }
   };
 
-  // Minimiza a dica e o alerta automaticamente após 5 segundos
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsTipExpanded(false);
-      setIsAlertExpanded(false); // Recolhe após o tempo determinado
     }, 5000);
-
     return () => clearTimeout(timer);
   }, []);
 
-  // --- IMPLEMENTAÇÃO WEB (LEAFLET) ---
-  // 1. Inicializa o mapa Leaflet uma única vez
   useEffect(() => {
     if (!isWeb) return;
 
@@ -157,7 +148,6 @@ export default function MapScreen({
         (container as any)._leaflet_map.remove();
       }
 
-      // Se temos userLocation inicial, centraliza nele, senão no selectedPoint ou default
       const initialCenter: [number, number] = mapCenterRef.current
         ?? (userLocation
           ? [userLocation.latitude, userLocation.longitude]
@@ -208,13 +198,10 @@ export default function MapScreen({
       }
       webMapRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isWeb]);
 
-  // 2. Centraliza o mapa na localização do usuário ao abrir a aplicação (uma única vez ou por solicitação forçada)
   useEffect(() => {
     if (!userLocation) return;
-
     if (hasCenteredOnUserRef.current && !forceCenterRef.current) return;
 
     if (isWeb && webMapRef.current) {
@@ -236,7 +223,6 @@ export default function MapScreen({
     }
   }, [userLocation, isWeb, mapReady]);
 
-  // 3. Atualiza os markers no mapa Web (Leaflet) sem destruir/recriar o mapa
   useEffect(() => {
     if (!isWeb || !webMapRef.current || !mapReady) return;
 
@@ -244,15 +230,11 @@ export default function MapScreen({
     if (!L) return;
 
     const map = webMapRef.current;
-
-    // Remove markers antigos
     webMarkersRef.current.forEach((marker) => marker.remove());
     webMarkersRef.current = [];
 
-    // Adiciona novos markers de reviews
     reviews.forEach((review) => {
       const pinColor = getCategoryColor(review.category);
-
       const customIcon = L.divIcon({
         className: 'custom-div-icon',
         html: `<div style="background-color: ${pinColor}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.4);"></div>`,
@@ -268,17 +250,14 @@ export default function MapScreen({
             <p style="margin: 0; font-size: 13px;">${review.description}</p>
           </div>
         `);
-
       webMarkersRef.current.push(marker);
     });
 
-    // Remove marker selecionado antigo
     if (webSelectedMarkerRef.current) {
       webSelectedMarkerRef.current.remove();
       webSelectedMarkerRef.current = null;
     }
 
-    // Adiciona novo marker selecionado se houver
     if (selectedPoint) {
       const selectedIcon = L.divIcon({
         className: 'selected-div-icon',
@@ -287,53 +266,36 @@ export default function MapScreen({
         iconAnchor: [10, 10],
       });
 
-      if (!document.getElementById('leaflet-animation-style')) {
-        const style = document.createElement('style');
-        style.id = 'leaflet-animation-style';
-        style.innerHTML = `
-          @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.3); opacity: 0.8; }
-            100% { transform: scale(1); opacity: 1; }
-          }
-        `;
-        document.head.appendChild(style);
-      }
-
       const marker = L.marker([selectedPoint.latitude, selectedPoint.longitude], { icon: selectedIcon })
         .addTo(map)
         .bindPopup(
           '<b>Ponto Selecionado</b><b><br/>Latitude: </b>' + selectedPoint.latitude.toFixed(5) + '<b> | Longitude: </b>' + selectedPoint.longitude.toFixed(5) + '<br/>Clique no botão abaixo para avaliar.'
         )
         .openPopup();
-
       webSelectedMarkerRef.current = marker;
     }
   }, [reviews, selectedPoint, isWeb, mapReady]);
+
+  // Posicionamento lateral controlado pelo estado Destro/Canhoto
+  const sidePosition = isRightHanded ? { right: 12 } : { left: 12 };
 
   if (isWeb) {
     return (
       <View style={styles.webContainer}>
         <div id={webMapId} style={{ width: '100%', height: '100%', outline: 'none' }} />
 
-        {/* ================= DICA DO MAPA ================= */}
         {isTipExpanded ? (
           <View style={styles.webTipExpanded}>
             <Text style={styles.webTipText}>
-              {Platform.OS === 'web'
-                ? 'Dica: Clique em qualquer ponto do mapa para selecionar o local da ocorrência.'
-                : 'Dica: Toque longo em qualquer ponto do mapa para selecionar o local da ocorrência.'}
+              Dica: Clique em qualquer ponto do mapa para selecionar o local da ocorrência.
             </Text>
-            <TouchableOpacity
-              style={styles.closeTipButton}
-              onPress={() => setIsTipExpanded(false)}
-            >
+            <TouchableOpacity style={styles.closeTipButton} onPress={() => setIsTipExpanded(false)}>
               <Text style={styles.closeTipText}>✕</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <TouchableOpacity
-            style={[styles.webTipMinimized, { top: 12, right: 12 }]} // Posicionado no canto direito superior
+            style={[styles.webTipMinimized, sidePosition]} 
             onPress={() => setIsTipExpanded(true)}
             activeOpacity={0.8}
           >
@@ -341,9 +303,8 @@ export default function MapScreen({
           </TouchableOpacity>
         )}
 
-        {/* Floating Recenter Button for Web */}
         <TouchableOpacity
-          style={styles.recenterButton}
+          style={[styles.recenterButton, sidePosition]} // Troca de lado!
           onPress={handleRecenter}
           activeOpacity={0.8}
           accessibilityLabel="Centralizar na minha localização"
@@ -354,14 +315,9 @@ export default function MapScreen({
     );
   }
 
-  // --- IMPLEMENTAÇÃO NATIVE (REACT-NATIVE-MAPS) ---
   const defaultRegion = {
-    latitude: selectedPoint
-      ? selectedPoint.latitude
-      : (userLocation ? userLocation.latitude : -5.0920),
-    longitude: selectedPoint
-      ? selectedPoint.longitude
-      : (userLocation ? userLocation.longitude : -42.8038),
+    latitude: selectedPoint ? selectedPoint.latitude : (userLocation ? userLocation.latitude : -5.0920),
+    longitude: selectedPoint ? selectedPoint.longitude : (userLocation ? userLocation.longitude : -42.8038),
     latitudeDelta: 0.005,
     longitudeDelta: 0.004,
   };
@@ -408,22 +364,18 @@ export default function MapScreen({
         ) : null}
       </MapView>
 
-      {/* ================= DICA DO MAPA NATIVE ================= */}
       {isTipExpanded ? (
         <View style={styles.webTipExpanded}>
           <Text style={styles.webTipText}>
             Dica: Toque longo em qualquer ponto do mapa para selecionar o local da ocorrência.
           </Text>
-          <TouchableOpacity
-            style={styles.closeTipButton}
-            onPress={() => setIsTipExpanded(false)}
-          >
+          <TouchableOpacity style={styles.closeTipButton} onPress={() => setIsTipExpanded(false)}>
             <Text style={styles.closeTipText}>✕</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <TouchableOpacity
-          style={[styles.webTipMinimized, { top: 12, right: 12 }]}
+          style={[styles.webTipMinimized, sidePosition]} 
           onPress={() => setIsTipExpanded(true)}
           activeOpacity={0.8}
         >
@@ -431,9 +383,8 @@ export default function MapScreen({
         </TouchableOpacity>
       )}
 
-      {/* Floating Recenter Button for Native */}
       <TouchableOpacity
-        style={styles.recenterButton}
+        style={[styles.recenterButton, sidePosition]} 
         onPress={handleRecenter}
         activeOpacity={0.8}
         accessibilityLabel="Centralizar na minha localização"
@@ -462,8 +413,7 @@ const styles = StyleSheet.create({
   },
   recenterButton: {
     position: 'absolute',
-    top: 104,
-    right: 12,
+    top: 104, // O balão seletor ficará logo abaixo deste botão (em top: 154)
     backgroundColor: '#1e293b',
     width: 38,
     height: 38,
@@ -477,32 +427,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 5,
-  },
-  // Alerta de área em destaque vermelho/escuro expandido no topo
-  webAlertExpanded: {
-    position: 'absolute',
-    top: 300, // Fica logo abaixo da dica se ambas estiverem abertas simultaneamente
-    alignSelf: 'center',
-    backgroundColor: 'rgba(220, 38, 38, 0.95)', // Fundo avermelhado de atenção
-    paddingLeft: 16,
-    paddingRight: 10,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#ef4444',
-    zIndex: 1000,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    maxWidth: '90%',
-  },
-  webAlertText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
   },
   webTipExpanded: {
     position: 'absolute',
@@ -543,7 +467,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
-  // Botões redondos flutuantes quando minimizados
   webTipMinimized: {
     position: 'absolute',
     backgroundColor: '#1e293b',
@@ -559,14 +482,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 5,
+    top: 10,
   },
   helpIconText: {
     color: '#fb7e44ff',
     fontSize: 18,
     fontWeight: '800',
-  },
-  alertIconText: {
-    fontSize: 16,
   },
   fallbackContainer: {
     flex: 1,
