@@ -189,7 +189,7 @@ export default function HomeScreen() {
             accessibilityLabel="Remover seleção"
           >
             <Ionicons name="close-circle" size={24} color="#ffffff" />
-            <Text style={styles.clearSelectionButtonText}>Remover seleção</Text>
+            <Text style={styles.clearSelectionButtonText}>Cancelar</Text>
           </TouchableOpacity>
         ) : null}
       </View>

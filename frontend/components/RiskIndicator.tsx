@@ -46,7 +46,7 @@ export default function RiskIndicator({
         <Ionicons
           name={config.icon}
           size={18}
-          color="#ffffff"
+          color={config.textColor || '#ffffff'}
         />
       </TouchableOpacity>
     );
@@ -66,20 +66,20 @@ export default function RiskIndicator({
         <Ionicons
           name={config.icon}
           size={24}
-          color="#ffffff"
+          color={config.textColor || '#ffffff'}
         />
 
         <View style={styles.textContainer}>
-          <Text style={styles.title}>
+          <Text style={[styles.title, { color: config.textColor || '#ffffff' }]}>
             {config.bannerText}
           </Text>
 
-          <Text style={styles.description}>
+          <Text style={[styles.description, { color: config.textColor || '#ffffff' }]}>
             {config.description}
           </Text>
 
           {score !== undefined && (
-            <Text style={styles.score}>
+            <Text style={[styles.score, { color: config.textColor || '#ffffff' }]}>
               Pontuação atual: {score}
             </Text>
           )}
@@ -92,7 +92,7 @@ export default function RiskIndicator({
           <Ionicons
             name="close"
             size={16}
-            color="#ffffff"
+            color={config.textColor || '#ffffff'}
           />
         </TouchableOpacity>
       </View>
@@ -103,7 +103,7 @@ export default function RiskIndicator({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 50,
+    top: 80,
     alignSelf: 'center',
 
     paddingLeft: 16,
