@@ -78,7 +78,7 @@ export const reviewApi = {
    */
   async getAreaRisk(latitude: number, longitude: number): Promise<RiskResponse> {
     try {
-      const response = await fetch(`${BASE_URL}/api/reviews/risk?latitude=${latitude}&longitude=${longitude}`, {
+      const response = await fetch(`${BASE_URL}/api/risk?latitude=${latitude}&longitude=${longitude}`, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
