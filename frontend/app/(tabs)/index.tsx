@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import MapScreen from '@/components/MapScreen';
 import LocationReviewButton from '@/components/LocationReviewButton';
@@ -23,6 +23,9 @@ import AlertScreen from '@/components/alerts/AlertScreen';
 import { alertApi, AlertPayload } from '@/services/alertApi';
 
 export default function HomeScreen() {
+
+  const insets = useSafeAreaInsets()
+  
   const { 
     latitude: userLat, 
     longitude: userLng, 
@@ -33,7 +36,7 @@ export default function HomeScreen() {
   const [reviews, setReviews] = useState<LocationReviewResponse[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<{ latitude: number; longitude: number } | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-    const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [pendingReview, setPendingReview] = useState<{ category: string; description: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [backendStatus, setBackendStatus] = useState<'online' | 'offline'>('offline');
@@ -99,13 +102,24 @@ export default function HomeScreen() {
   useEffect(() => {
     if (userLat !== null && userLng !== null) {
       void loadCriticalAlerts(userLat, userLng);
+      
+      const atualizarRiscoPorMovimento = async () => {
+        try {
+          const riskData = await reviewApi.getAreaRisk(userLat, userLng);
+          setAreaRisk(riskData);
+          console.log(`[HomeScreen Reativa] Consulta de risco atualizada via GPS: ${riskData.level}`);
+        } catch (error) {
+          console.error("Erro ao atualizar risco por movimento de GPS:", error);
+        }
+      };
+      
+      void atualizarRiscoPorMovimento();
     }
   }, [userLat, userLng]); 
 
   const handleDismissAlert = (alertId: string) => {
     console.log(`[HomeScreen] Alerta ${alertId} fechado pelo usuário.`);
     setAlerts((prev) => prev.filter((a) => a.id !== alertId));
-
   };
 
   useEffect(() => {
@@ -196,7 +210,7 @@ export default function HomeScreen() {
   // Posição lateral dinâmica repassada aos componentes e ao botão de emergência
   const dynamicSideStyle = isRightHanded ? { right: 16 } : { left: 16 };
 
-  return (
+return (
     <SafeAreaView style={styles.container}>
       {/* Top Header Bar */}
       <View style={styles.header}>
@@ -227,22 +241,18 @@ export default function HomeScreen() {
           onRegionChangeComplete={handleRegionChangeComplete}
           userLocation={userLat !== null && userLng !== null ? { latitude: userLat, longitude: userLng } : null}
           onRecenterPress={getUserLocation}
-          isRightHanded={isRightHanded} // Passa a orientação para mudar os botões internos de lado!
+          isRightHanded={isRightHanded}
         />
-        <RiskIndicator level={areaRisk.level} score={areaRisk.score} />
         
-        {/* Componente de alertas flutuantes no mapa */}
-        <AlertScreen alerts={alerts} onDismiss={handleDismissAlert} />
-      </View>
-
-        {/* Passa a orientação para o banner e seu botão colapsado mudarem de lado */}
         <RiskIndicator 
           level={areaRisk.level} 
           score={areaRisk.score} 
           isRightHanded={isRightHanded} 
         />
+        
+        <AlertScreen alerts={alerts} onDismiss={handleDismissAlert} />
 
-        {/* Único Balão de Controle do Modo Destro/Canhoto - Posicionado abaixo do botão de autocentralização */}
+        {/* Balão de Controle do Modo Destro/Canhoto */}
         <TouchableOpacity 
           style={[
             styles.handSelectorBubble, 
@@ -257,8 +267,20 @@ export default function HomeScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Container de Ações Central (Registrar Avaliação / Cancelar) */}
-        <View style={styles.actionButtonsContainer}>
+        {/* Botão de Emergência mudando de lado - Calibrado para não colidir */}
+        <EmergencyButton
+          onPress={handleEmergencyPress}
+          style={[
+            dynamicSideStyle, 
+            { bottom: 90 + insets.bottom, zIndex: 1000 } 
+          ]}
+        />
+
+        {/* Container de Ações Centralizado */}
+        <View style={[
+          styles.actionButtonsContainer, 
+          { bottom: 16 + insets.bottom } 
+        ]}>
           <LocationReviewButton
             isSelected={selectedPoint !== null}
             onPress={handleReviewButtonClick}
@@ -275,22 +297,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ) : null}
         </View>
-
-        {/* Botão de Emergência mudando de lado */}
-        <EmergencyButton
-          onPress={handleEmergencyPress}
-          style={dynamicSideStyle}
-        />
-        {selectedPoint ? (
-          <TouchableOpacity
-            style={styles.clearSelectionButton}
-            onPress={() => setSelectedPoint(null)}
-            accessibilityLabel="Remover selection"
-          >
-            <Ionicons name="close-circle" size={24} color="#ffffff" />
-            <Text style={styles.clearSelectionButtonText}>Cancelar</Text>
-          </TouchableOpacity>
-        ) : null}
       </View>
 
       {/* Barra de Navegação Inferior Estética */}
@@ -311,7 +317,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Modais */}
+      {/* Modais de Avaliação */}
       {selectedPoint ? (
         <ReviewModal
           visible={modalVisible}
@@ -340,7 +346,6 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -386,7 +391,7 @@ const styles = StyleSheet.create({
   },
   handSelectorBubble: {
     position: 'absolute',
-    top: 154, // Alinhado perfeitamente logo abaixo do botão de autocentralização (que fica em top: 104)
+    top: 154, 
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1e293b',
@@ -410,11 +415,10 @@ const styles = StyleSheet.create({
   },
   actionButtonsContainer: {
     position: 'absolute',
-    bottom: 16,
     alignSelf: 'center',
     flexDirection: 'row',
     gap: 10,
-    zIndex: 98,
+    zIndex: 99,
     elevation: 8,
   },
   clearSelectionButton: {
@@ -458,12 +462,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tabText: {
-    color: '#94a3b8',
+    color: '#64748b',
     fontSize: 11,
     fontWeight: '600',
     marginTop: 4,
   },
   tabTextActive: {
-    color: '#2dd4bf',
+    color: '#2dd4bf', 
   },
 });

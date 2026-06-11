@@ -22,7 +22,6 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
     const lat = locations[0].coords.latitude;
     const lng = locations[0].coords.longitude;
     console.log(`[Background Task] GPS moveu em background! Lat: ${lat}, Lng: ${lng}`);
-    
   }
 });
 
@@ -74,17 +73,50 @@ export const useLocation = () => {
             notificationBody: "Monitorando a segurança do seu trajeto.",
           }
         });
-        console.log('[useLocation Hook] ✅ Monitoramento em segundo plano iniciado com sucesso.');
+        console.log('[useLocation Hook] Monitoramento em segundo plano iniciado com sucesso.');
       } else {
-        console.log('[useLocation Hook] ❌ Permissão de localização em background negada.');
+        console.log('[useLocation Hook] Permissão de localização em background negada.');
       }
     } catch (err: any) {
-      console.log('[useLocation Hook] ⚠️ Restrição detectada (esperado no Expo Go):', err.message);
+      console.log('[useLocation Hook]  Restrição detectada (esperado no Expo Go):', err.message);
     }
   };
 
   useEffect(() => {
     void getUserLocation();
+
+    let posicaoInscricao: Location.LocationSubscription | null = null;
+
+    const iniciarMonitoramentoAtivo = async () => {
+      try {
+        posicaoInscricao = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            distanceInterval: 50, 
+            timeInterval: 10000,
+          },
+          (location) => {
+            console.log(`[useLocation Foreground] GPS moveu significativamente: Lat: ${location.coords.latitude}, Lng: ${location.coords.longitude}`);
+            setState({
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+              loading: false,
+              error: null,
+            });
+          }
+        );
+      } catch (err) {
+        console.error('[useLocation Foreground] Erro ao iniciar observador de posição:', err);
+      }
+    };
+
+    void iniciarMonitoramentoAtivo();
+
+    return () => {
+      if (posicaoInscricao) {
+        posicaoInscricao.remove();
+      }
+    };
   }, []);
 
   return {
