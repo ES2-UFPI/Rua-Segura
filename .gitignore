@@ -6,6 +6,9 @@ backend/.mypy_cache/
 *.pyc
 .env
 
+# Node dependencies
+node_modules/
+
 # IDE
 .idea/
 
@@ -63,3 +66,8 @@ frontend/android
 .vscode/.react/
 .vscode/project.xcworkspace/
 
+# Ambiente virtual
+backend/.venv
+backend/venv
+.venv
+venv

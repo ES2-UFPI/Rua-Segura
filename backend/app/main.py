@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.controllers.review_controller import router as review_router
+from app.controllers.risk_controller import router as risk_router
+from app.controllers import alert_controller
 
 app = FastAPI(title="Rua Segura API")
 
@@ -10,6 +13,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(review_router)
+app.include_router(risk_router)
+app.include_router(alert_controller.router)
 
 @app.get("/")
 def read_root():
