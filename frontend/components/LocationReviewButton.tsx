@@ -41,11 +41,11 @@ export default function LocationReviewButton({
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
-    bottom: 0,
-    alignSelf: 'center',
-    zIndex: 99,
-    elevation: 8,
+    // Sombra sutil que se soma à elevação do pai
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   button: {
     flexDirection: 'row',
