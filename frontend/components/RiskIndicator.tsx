@@ -11,11 +11,13 @@ import { RiskVisualStrategy, RiskLevel } from '../config/RiskVisualStrategy';
 interface RiskIndicatorProps {
   level: string;
   score?: number;
+  isRightHanded?: boolean; // Nova propriedade recebida
 }
 
 export default function RiskIndicator({
   level,
   score,
+  isRightHanded = true,
 }: RiskIndicatorProps) {
   const [expanded, setExpanded] = useState(true);
 
@@ -33,12 +35,16 @@ export default function RiskIndicator({
     return () => clearTimeout(timer);
   }, []);
 
+  // Alinhamento lateral do ícone quando minimizado
+  const sidePosition = isRightHanded ? { right: 12 } : { left: 12 };
+
   if (!expanded) {
     return (
       <TouchableOpacity
         style={[
           styles.floatingIcon,
           { backgroundColor: config.color },
+          sidePosition, // Respeita o modo canhoto/destro!
         ]}
         onPress={() => setExpanded(true)}
         activeOpacity={0.8}
@@ -103,53 +109,40 @@ export default function RiskIndicator({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 80,
+    top: 20, // Ajustado para não colidir com o cabeçalho útil do mapa
     alignSelf: 'center',
-
     paddingLeft: 16,
     paddingRight: 10,
     paddingVertical: 8,
-
     borderRadius: 20,
     borderWidth: 1,
-
     maxWidth: '90%',
-
     zIndex: 1000,
     elevation: 6,
-
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.27,
     shadowRadius: 4.65,
   },
-
   content: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-
   textContainer: {
     flex: 1,
     marginLeft: 12,
   },
-
   title: {
     color: '#ffffff',
     fontWeight: '700',
     fontSize: 14,
     marginBottom: 2,
   },
-
   description: {
     color: '#ffffff',
     fontSize: 12,
     opacity: 0.95,
   },
-
   score: {
     color: '#ffffff',
     fontSize: 11,
@@ -157,32 +150,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     opacity: 0.8,
   },
-
   closeButton: {
     marginLeft: 8,
     padding: 4,
   },
-
   floatingIcon: {
     position: 'absolute',
-
-    // abaixo do botão de dica
-    top: 58,
-    right: 12,
-
+    top: 54, // Mantém o empilhamento abaixo do botão de interrogação '?' do mapa (que fica em top: 12)
     width: 38,
     height: 38,
     borderRadius: 19,
-
     borderWidth: 1.5,
     borderColor: '#334155',
-
     alignItems: 'center',
     justifyContent: 'center',
-
     zIndex: 1000,
     elevation: 5,
-
     shadowColor: '#000',
     shadowOpacity: 0.3,
     shadowRadius: 5,
