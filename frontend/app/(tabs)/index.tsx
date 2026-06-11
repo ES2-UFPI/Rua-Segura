@@ -23,8 +23,7 @@ import AlertScreen from '@/components/alerts/AlertScreen';
 import { alertApi, AlertPayload } from '@/services/alertApi';
 
 export default function HomeScreen() {
-
-  const insets = useSafeAreaInsets()
+  const insets = useSafeAreaInsets();
   
   const { 
     latitude: userLat, 
@@ -42,14 +41,13 @@ export default function HomeScreen() {
   const [backendStatus, setBackendStatus] = useState<'online' | 'offline'>('offline');
   const [areaRisk, setAreaRisk] = useState<RiskResponse>({ level: 'AZUL', score: 0, count: 0 });
   const [alerts, setAlerts] = useState<AlertPayload[]>([]);
+  const [isRightHanded, setIsRightHanded] = useState(true);
+  const [lastAlertId, setLastAlertId] = useState<string | null>(null);
 
   useEffect(() => {
     console.log('[HomeScreen] Inicializando serviços de rastreamento...');
     void startBackgroundLocation(); 
   }, []);
-
-  // Estado de acessibilidade: true = Destro (Padrão), false = Canhoto
-  const [isRightHanded, setIsRightHanded] = useState(true);
 
   const loadReviews = async () => {
     try {
@@ -76,8 +74,6 @@ export default function HomeScreen() {
       setLoading(false);
     }
   };
-
-  const [lastAlertId, setLastAlertId] = useState<string | null>(null);
 
   const loadCriticalAlerts = async (lat: number, lng: number) => {
     try {
@@ -207,10 +203,9 @@ export default function HomeScreen() {
     Alert.alert("Emergência", "Botão de emergência acionado! (Ação apenas estética nesta sprint).");
   };
 
-  // Posição lateral dinâmica repassada aos componentes e ao botão de emergência
   const dynamicSideStyle = isRightHanded ? { right: 16 } : { left: 16 };
 
-return (
+  return (
     <SafeAreaView style={styles.container}>
       {/* Top Header Bar */}
       <View style={styles.header}>
@@ -250,8 +245,6 @@ return (
           isRightHanded={isRightHanded} 
         />
         
-        <AlertScreen alerts={alerts} onDismiss={handleDismissAlert} />
-
         {/* Balão de Controle do Modo Destro/Canhoto */}
         <TouchableOpacity 
           style={[
@@ -267,7 +260,7 @@ return (
           </Text>
         </TouchableOpacity>
 
-        {/* Botão de Emergência mudando de lado - Calibrado para não colidir */}
+        {/* Botão de Emergência mudando de lado */}
         <EmergencyButton
           onPress={handleEmergencyPress}
           style={[
@@ -276,26 +269,41 @@ return (
           ]}
         />
 
-        {/* Container de Ações Centralizado */}
+        {/* 🌟 CONTAINER DO BOTÃO: Movido para o ponto mais baixo (bottom: 8) e aplicando o scale */}
         <View style={[
           styles.actionButtonsContainer, 
-          { bottom: 16 + insets.bottom } 
+          { bottom: 8 + insets.bottom } 
         ]}>
-          <LocationReviewButton
-            isSelected={selectedPoint !== null}
-            onPress={handleReviewButtonClick}
-          />
+          <View style={styles.smallButtonWrapper}>
+            <LocationReviewButton
+              isSelected={selectedPoint !== null}
+              onPress={handleReviewButtonClick}
+            />
+          </View>
           
           {selectedPoint ? (
             <TouchableOpacity
-              style={styles.clearSelectionButton}
+              style={styles.clearSelectionButtonSmall}
               onPress={() => setSelectedPoint(null)}
-              accessibilityLabel="Remover seleção"
             >
-              <Ionicons name="close-circle" size={24} color="#ffffff" />
-              <Text style={styles.clearSelectionButtonText}>Cancelar</Text>
+              <Ionicons name="close-circle" size={18} color="#ffffff" />
+              <Text style={styles.clearSelectionButtonTextSmall}>Cancelar</Text>
             </TouchableOpacity>
           ) : null}
+        </View>
+
+        {/* Alertas flutuantes soberanos */}
+        <View style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 150 + insets.bottom, 
+          pointerEvents: 'box-none', 
+          zIndex: 9999,              
+          elevation: 10,             
+        }}>
+          <AlertScreen alerts={alerts} onDismiss={handleDismissAlert} />
         </View>
       </View>
 
@@ -346,6 +354,7 @@ return (
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -417,32 +426,32 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignSelf: 'center',
     flexDirection: 'row',
-    gap: 10,
+    alignItems: 'center',
+    gap: 6,
     zIndex: 99,
     elevation: 8,
   },
-  clearSelectionButton: {
+  // 🌟 ESTILO NOVO: Reduz o tamanho do botão em 15% de forma limpa e responsiva
+  smallButtonWrapper: {
+    transform: [{ scale: 0.85 }], 
+  },
+  clearSelectionButtonSmall: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 30,
-    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 4,
     backgroundColor: '#1f2937',
     borderWidth: 1,
     borderColor: '#334155',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    elevation: 6,
   },
-  clearSelectionButtonText: {
+  clearSelectionButtonTextSmall: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '700',
-    letterSpacing: 0.3,
   },
   bottomTabBar: {
     backgroundColor: '#1e293b',
