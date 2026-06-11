@@ -7,6 +7,7 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import MapScreen from '@/components/MapScreen';
@@ -17,17 +18,32 @@ import RiskIndicator from '@/components/RiskIndicator';
 import EmergencyButton from '@/components/EmergencyButton';
 import { reviewApi, LocationReviewResponse, RiskResponse } from '@/services/api';
 import { useLocation } from '@/hooks/useLocation';
+import { NotificationFacade } from '@/services/notifications/NotificationFacade';
+import AlertScreen from '@/components/alerts/AlertScreen';
+import { alertApi, AlertPayload } from '@/services/alertApi';
 
 export default function HomeScreen() {
-  const { latitude: userLat, longitude: userLng, getUserLocation } = useLocation();
+  const { 
+    latitude: userLat, 
+    longitude: userLng, 
+    getUserLocation, 
+    startBackgroundLocation 
+  } = useLocation();
+  
   const [reviews, setReviews] = useState<LocationReviewResponse[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<{ latitude: number; longitude: number } | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+    const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [pendingReview, setPendingReview] = useState<{ category: string; description: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [backendStatus, setBackendStatus] = useState<'online' | 'offline'>('offline');
   const [areaRisk, setAreaRisk] = useState<RiskResponse>({ level: 'AZUL', score: 0, count: 0 });
+  const [alerts, setAlerts] = useState<AlertPayload[]>([]);
+
+  useEffect(() => {
+    console.log('[HomeScreen] Inicializando serviços de rastreamento...');
+    void startBackgroundLocation(); 
+  }, []);
 
   // Estado de acessibilidade: true = Destro (Padrão), false = Canhoto
   const [isRightHanded, setIsRightHanded] = useState(true);
@@ -56,6 +72,40 @@ export default function HomeScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const [lastAlertId, setLastAlertId] = useState<string | null>(null);
+
+  const loadCriticalAlerts = async (lat: number, lng: number) => {
+    try {
+      const activeAlerts = await alertApi.getAlerts({ latitude: lat, longitude: lng });
+      
+      if (activeAlerts && activeAlerts.length > 0) {
+        const novoAlerta = activeAlerts[0];
+
+        if (novoAlerta.id === lastAlertId || alerts.some(a => a.id === novoAlerta.id)) {
+          console.log('[HomeScreen] Alerta repetido ignorado para evitar loop.');
+          return;
+        }
+
+        setLastAlertId(novoAlerta.id);
+        await NotificationFacade.processarAlertaDeRisco(novoAlerta, setAlerts);
+      }
+    } catch (error) {
+      console.log('[Alerts] Servidor offline ou rota não implementada no back ainda.');
+    }
+  };
+
+  useEffect(() => {
+    if (userLat !== null && userLng !== null) {
+      void loadCriticalAlerts(userLat, userLng);
+    }
+  }, [userLat, userLng]); 
+
+  const handleDismissAlert = (alertId: string) => {
+    console.log(`[HomeScreen] Alerta ${alertId} fechado pelo usuário.`);
+    setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+
   };
 
   useEffect(() => {
@@ -179,6 +229,11 @@ export default function HomeScreen() {
           onRecenterPress={getUserLocation}
           isRightHanded={isRightHanded} // Passa a orientação para mudar os botões internos de lado!
         />
+        <RiskIndicator level={areaRisk.level} score={areaRisk.score} />
+        
+        {/* Componente de alertas flutuantes no mapa */}
+        <AlertScreen alerts={alerts} onDismiss={handleDismissAlert} />
+      </View>
 
         {/* Passa a orientação para o banner e seu botão colapsado mudarem de lado */}
         <RiskIndicator 
@@ -226,6 +281,16 @@ export default function HomeScreen() {
           onPress={handleEmergencyPress}
           style={dynamicSideStyle}
         />
+        {selectedPoint ? (
+          <TouchableOpacity
+            style={styles.clearSelectionButton}
+            onPress={() => setSelectedPoint(null)}
+            accessibilityLabel="Remover selection"
+          >
+            <Ionicons name="close-circle" size={24} color="#ffffff" />
+            <Text style={styles.clearSelectionButtonText}>Cancelar</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {/* Barra de Navegação Inferior Estética */}
@@ -292,17 +357,8 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
     zIndex: 100,
   },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerTitle: {
-    color: '#f8fafc',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerTitle: { color: '#f8fafc', fontSize: 18, fontWeight: '800', letterSpacing: 0.5 },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',

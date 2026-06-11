@@ -5,12 +5,13 @@ import { Ionicons } from '@expo/vector-icons';
 export const getCategoryColor = (category: string): string => {
   switch (category) {
     case 'Assalto':
+      return '#000000';
     case 'Briga/agressão':
       return '#dc2626';
     case 'Assédio':
-      return '#db2777';
+      return '#654321';
     case 'Furto':
-      return '#f43f5e';
+      return '#ffb5c0';
     case 'Perseguição/stalking':
       return '#2563eb';
     case 'Movimentação suspeita':
