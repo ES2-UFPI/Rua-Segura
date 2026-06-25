@@ -25,6 +25,8 @@ frontend/dist/
 frontend/web-build/
 frontend/.env
 frontend/expo-env.d.ts
+.expo/
+
 
 # Native
 .kotlin/
