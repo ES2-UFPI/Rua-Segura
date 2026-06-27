@@ -1,19 +1,17 @@
 import unittest
+
 from fastapi.testclient import TestClient
+
 from app.main import app
+
 
 class TestSafeRouteEndpoints(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
         self.endpoint = "/api/routes/safe"
 
-    def test_calculate_safe_route_success(self):
-        """
-        Deve enviar uma requisição POST válida para o endpoint de rota segura.
-        Esperar uma resposta de sucesso no futuro (status 200).
-        Este teste deve falhar agora com 404 (ou similar) pois o endpoint não existe.
-        """
-        payload = {
+    def _valid_payload(self):
+        return {
             "origin": {
                 "latitude": -5.0930,
                 "longitude": -42.8060
@@ -23,97 +21,162 @@ class TestSafeRouteEndpoints(unittest.TestCase):
                 "longitude": -42.8080
             }
         }
+
+    def _assert_bad_request(self, payload, detail):
         response = self.client.post(self.endpoint, json=payload)
-        # TDD RED: Deve falhar pois o endpoint não existe e retornará 404
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json(), {"detail": detail})
+
+    def test_calculate_safe_route_success(self):
+        response = self.client.post(self.endpoint, json=self._valid_payload())
+
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "success"})
+
+    def test_calculate_safe_route_accepts_coordinate_boundaries(self):
+        payload = {
+            "origin": {
+                "latitude": -90.0,
+                "longitude": -180.0
+            },
+            "destination": {
+                "latitude": 90.0,
+                "longitude": 180.0
+            }
+        }
+
+        response = self.client.post(self.endpoint, json=payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "success"})
+
+    def test_calculate_safe_route_accepts_numeric_strings(self):
+        payload = {
+            "origin": {
+                "latitude": "-5.0930",
+                "longitude": "-42.8060"
+            },
+            "destination": {
+                "latitude": "-5.0945",
+                "longitude": "-42.8080"
+            }
+        }
+
+        response = self.client.post(self.endpoint, json=payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "success"})
 
     def test_missing_origin(self):
-        """
-        Deve validar a obrigatoriedade da origem.
-        Enviar requisição sem origem e esperar erro 400 no futuro.
-        """
         payload = {
             "destination": {
                 "latitude": -5.0945,
                 "longitude": -42.8080
             }
         }
-        response = self.client.post(self.endpoint, json=payload)
-        # TDD RED: Deve falhar pois o endpoint não existe e retornará 404 (ou similar) em vez de 400
-        self.assertEqual(response.status_code, 400)
+
+        self._assert_bad_request(payload, "Origin is required")
+
+    def test_null_origin(self):
+        payload = self._valid_payload()
+        payload["origin"] = None
+
+        self._assert_bad_request(payload, "Origin is required")
 
     def test_missing_destination(self):
-        """
-        Deve validar a obrigatoriedade do destino.
-        Enviar requisição sem destino e esperar erro 400 no futuro.
-        """
         payload = {
             "origin": {
                 "latitude": -5.0930,
                 "longitude": -42.8060
             }
         }
-        response = self.client.post(self.endpoint, json=payload)
-        # TDD RED: Deve falhar pois o endpoint não existe e retornará 404 (ou similar) em vez de 400
-        self.assertEqual(response.status_code, 400)
+
+        self._assert_bad_request(payload, "Destination is required")
+
+    def test_null_destination(self):
+        payload = self._valid_payload()
+        payload["destination"] = None
+
+        self._assert_bad_request(payload, "Destination is required")
+
+    def test_origin_must_be_object_with_latitude_and_longitude(self):
+        invalid_payloads = [
+            {
+                "origin": "Teresina",
+                "destination": self._valid_payload()["destination"]
+            },
+            {
+                "origin": {"latitude": -5.0930},
+                "destination": self._valid_payload()["destination"]
+            },
+            {
+                "origin": {"longitude": -42.8060},
+                "destination": self._valid_payload()["destination"]
+            }
+        ]
+
+        for payload in invalid_payloads:
+            with self.subTest(payload=payload):
+                self._assert_bad_request(
+                    payload,
+                    "Origin must contain latitude and longitude"
+                )
+
+    def test_destination_must_be_object_with_latitude_and_longitude(self):
+        invalid_payloads = [
+            {
+                "origin": self._valid_payload()["origin"],
+                "destination": "Teresina"
+            },
+            {
+                "origin": self._valid_payload()["origin"],
+                "destination": {"latitude": -5.0945}
+            },
+            {
+                "origin": self._valid_payload()["origin"],
+                "destination": {"longitude": -42.8080}
+            }
+        ]
+
+        for payload in invalid_payloads:
+            with self.subTest(payload=payload):
+                self._assert_bad_request(
+                    payload,
+                    "Destination must contain latitude and longitude"
+                )
+
+    def test_coordinates_must_be_numbers(self):
+        invalid_cases = [
+            ("origin", "latitude"),
+            ("origin", "longitude"),
+            ("destination", "latitude"),
+            ("destination", "longitude")
+        ]
+
+        for point, coordinate in invalid_cases:
+            payload = self._valid_payload()
+            payload[point][coordinate] = "invalid"
+
+            with self.subTest(point=point, coordinate=coordinate):
+                self._assert_bad_request(payload, "Coordinates must be numbers")
 
     def test_invalid_coordinates(self):
-        """
-        Deve validar coordenadas inválidas (latitude e longitude fora do intervalo).
-        Latitude fora de [-90, 90] ou Longitude fora de [-180, 180] devem retornar erro 400 no futuro.
-        """
-        # Latitude da origem fora do intervalo (-91.0)
-        payload_invalid_lat_origin = {
-            "origin": {
-                "latitude": -91.0,
-                "longitude": -42.8060
-            },
-            "destination": {
-                "latitude": -5.0945,
-                "longitude": -42.8080
-            }
-        }
-        response = self.client.post(self.endpoint, json=payload_invalid_lat_origin)
-        self.assertEqual(response.status_code, 400)
+        invalid_cases = [
+            ("origin", "latitude", -91.0, "Latitude must be between -90 and 90"),
+            ("origin", "longitude", 181.0, "Longitude must be between -180 and 180"),
+            ("destination", "latitude", 95.0, "Latitude must be between -90 and 90"),
+            ("destination", "longitude", -185.0, "Longitude must be between -180 and 180")
+        ]
 
-        # Longitude da origem fora do intervalo (181.0)
-        payload_invalid_lng_origin = {
-            "origin": {
-                "latitude": -5.0930,
-                "longitude": 181.0
-            },
-            "destination": {
-                "latitude": -5.0945,
-                "longitude": -42.8080
-            }
-        }
-        response = self.client.post(self.endpoint, json=payload_invalid_lng_origin)
-        self.assertEqual(response.status_code, 400)
+        for point, coordinate, value, detail in invalid_cases:
+            payload = self._valid_payload()
+            payload[point][coordinate] = value
 
-        # Latitude do destino fora do intervalo (95.0)
-        payload_invalid_lat_dest = {
-            "origin": {
-                "latitude": -5.0930,
-                "longitude": -42.8060
-            },
-            "destination": {
-                "latitude": 95.0,
-                "longitude": -42.8080
-            }
-        }
-        response = self.client.post(self.endpoint, json=payload_invalid_lat_dest)
-        self.assertEqual(response.status_code, 400)
+            with self.subTest(point=point, coordinate=coordinate, value=value):
+                self._assert_bad_request(payload, detail)
 
-        # Longitude do destino fora do intervalo (-185.0)
-        payload_invalid_lng_dest = {
-            "origin": {
-                "latitude": -5.0930,
-                "longitude": -42.8060
-            },
-            "destination": {
-                "latitude": -5.0945,
-                "longitude": -185.0
-            }
-        }
-        response = self.client.post(self.endpoint, json=payload_invalid_lng_dest)
-        self.assertEqual(response.status_code, 400)
+    def test_safe_route_endpoint_only_accepts_post(self):
+        response = self.client.get(self.endpoint)
+
+        self.assertEqual(response.status_code, 405)
