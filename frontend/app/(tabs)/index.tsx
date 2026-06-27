@@ -207,26 +207,6 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Header Bar */}
-      <View style={styles.header}>
-        <View style={styles.brandRow}>
-          <Ionicons name="shield-half" size={24} color="#0f766e" />
-          <Text style={styles.headerTitle}>Rua Segura</Text>
-        </View>
-        <TouchableOpacity style={styles.statusBadge} onPress={() => void loadReviews()}>
-          <View
-            style={[
-              styles.statusDot,
-              { backgroundColor: backendStatus === 'online' ? '#10b981' : '#ef4444' },
-            ]}
-          />
-          <Text style={styles.statusText}>
-            API: {backendStatus === 'online' ? 'Online' : 'Offline'}
-          </Text>
-          <Ionicons name="refresh-outline" size={14} color="#94a3b8" style={{ marginLeft: 4 }} />
-        </TouchableOpacity>
-      </View>
-
       {/* Main Map Area */}
       <View style={styles.mapContainer}>
         <MapScreen
@@ -238,6 +218,24 @@ export default function HomeScreen() {
           onRecenterPress={getUserLocation}
           isRightHanded={isRightHanded}
         />
+
+        {/* Botão flutuante indicativo do status da API no topo do stack lateral */}
+        <TouchableOpacity
+          style={[
+            styles.apiStatusFloating,
+            isRightHanded ? { right: 12 } : { left: 12 }
+          ]}
+          onPress={() => void loadReviews()}
+          activeOpacity={0.8}
+          accessibilityLabel={`Status da API: ${backendStatus}. Clique para recarregar.`}
+        >
+          <View
+            style={[
+              styles.statusDotInner,
+              { backgroundColor: backendStatus === 'online' ? '#10b981' : '#ef4444' },
+            ]}
+          />
+        </TouchableOpacity>
         
         <RiskIndicator 
           level={areaRisk.level} 
@@ -398,9 +396,32 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
+  apiStatusFloating: {
+    position: 'absolute',
+    top: 122,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#1e293b',
+    borderWidth: 1.5,
+    borderColor: '#334155',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  statusDotInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
   handSelectorBubble: {
     position: 'absolute',
-    top: 154, 
+    top: 272, 
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1e293b',

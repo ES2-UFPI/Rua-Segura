@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Platform, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import RiskMapLegend from './RiskMapLegend';
 
 export const getCategoryColor = (category: string): string => {
   switch (category) {
@@ -312,6 +313,8 @@ export default function MapScreen({
         >
           <Ionicons name="walk" size={22} color="#2dd4bf" />
         </TouchableOpacity>
+
+        <RiskMapLegend isRightHanded={isRightHanded} />
       </View>
     );
   }
@@ -340,6 +343,7 @@ export default function MapScreen({
         showsUserLocation={true}        
         showsMyLocationButton={false}   
         followsUserLocation={false}     
+        toolbarEnabled={false}
         onLongPress={(e: any) => {
           const { latitude, longitude } = e.nativeEvent.coordinate;
           onMapSelectPoint(latitude, longitude);
@@ -395,6 +399,8 @@ export default function MapScreen({
       >
         <Ionicons name="locate" size={22} color="#2dd4bf" />
       </TouchableOpacity>
+
+      <RiskMapLegend isRightHanded={isRightHanded} />
     </View>
   );
 }
@@ -417,7 +423,7 @@ const styles = StyleSheet.create({
   },
   recenterButton: {
     position: 'absolute',
-    top: 104, // O balão seletor ficará logo abaixo deste botão (em top: 154)
+    top: 222, // O balão seletor ficará logo abaixo deste botão (em top: 272)
     backgroundColor: '#1e293b',
     width: 38,
     height: 38,
@@ -434,7 +440,7 @@ const styles = StyleSheet.create({
   },
   webTipExpanded: {
     position: 'absolute',
-    top: 12,
+    top: 68,
     alignSelf: 'center',
     backgroundColor: 'rgba(30, 41, 59, 0.95)',
     paddingLeft: 16,
@@ -486,7 +492,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 5,
-    top: 10,
+    top: 72,
   },
   helpIconText: {
     color: '#fb7e44ff',
