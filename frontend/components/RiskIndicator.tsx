@@ -85,7 +85,7 @@ export default function RiskIndicator({
 const styles = StyleSheet.create({
   layerContainer: {
     position: 'absolute',
-    top: 64,
+    top: 172,
     alignItems: 'center',
     zIndex: 1000,
     // Garante que o conjunto (balão + botão) não ocupe mais de 85% da largura do ecrã
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   },
   floatingIcon: {
     position: 'absolute',
-    top: 64,
+    top: 172,
     width: 38,
     height: 38,
     borderRadius: 19,
