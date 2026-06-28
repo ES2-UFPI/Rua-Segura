@@ -1,4 +1,6 @@
 import unittest
+# pyrefly: ignore [missing-import]
+import pytest
 
 from fastapi.testclient import TestClient
 
@@ -180,3 +182,89 @@ class TestSafeRouteEndpoints(unittest.TestCase):
         response = self.client.get(self.endpoint)
 
         self.assertEqual(response.status_code, 405)
+
+
+def test_safe_route_integration_with_open_route_service(monkeypatch):
+    client = TestClient(app)
+    endpoint = "/api/routes/safe"
+    
+    # Configurar chave de API de teste e mock do httpx.post
+    monkeypatch.setenv("ORS_API_KEY", "test-api-key")
+    
+    class FakeResponse:
+        def __init__(self, status_code, json_data):
+            self.status_code = status_code
+            self._json_data = json_data
+            
+        def json(self):
+            return self._json_data
+            
+    called = []
+    
+    def fake_post(url, headers=None, json=None, timeout=None):
+        called.append((url, headers, json))
+        assert "/v2/directions/" in url
+        assert url.endswith("/geojson")
+        assert headers is not None
+        assert headers.get("Authorization") == "test-api-key"
+        assert json["coordinates"] == [
+            [-42.8016, -5.0892],
+            [-42.8100, -5.0920],
+        ]
+        return FakeResponse(
+            200,
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "summary": {
+                                "distance": 1250.5,
+                                "duration": 420.0,
+                            }
+                        },
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [
+                                [-42.8016, -5.0892],
+                                [-42.8050, -5.0901],
+                                [-42.8100, -5.0920],
+                            ],
+                        },
+                    }
+                ],
+            },
+        )
+        
+    monkeypatch.setattr("app.services.open_route_service.httpx.post", fake_post)
+    
+    payload = {
+        "origin": {
+            "latitude": -5.0892,
+            "longitude": -42.8016
+        },
+        "destination": {
+            "latitude": -5.0920,
+            "longitude": -42.8100
+        }
+    }
+    
+    response = client.post(endpoint, json=payload)
+    
+    assert response.status_code == 200
+    
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["distance"] == 1250.5
+    assert data["duration"] == 420.0
+    
+    # Validar que os pontos da rota foram convertidos e retornados no formato esperado
+    assert data["geometry"] == [
+        {"latitude": -5.0892, "longitude": -42.8016},
+        {"latitude": -5.0901, "longitude": -42.8050},
+        {"latitude": -5.0920, "longitude": -42.8100}
+    ]
+    
+    assert len(called) == 1
+
