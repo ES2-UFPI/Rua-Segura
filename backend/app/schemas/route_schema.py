@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from fastapi import HTTPException, status
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 class CoordinateSchema(BaseModel):
     latitude: float = Field(..., description="Latitude da coordenada")
@@ -8,6 +8,9 @@ class CoordinateSchema(BaseModel):
 
 class SafeRouteResponse(BaseModel):
     status: str = Field(..., description="Status do cálculo da rota")
+    distance: float = Field(..., description="Distância da rota em metros")
+    duration: float = Field(..., description="Duração estimada em segundos")
+    geometry: List[CoordinateSchema] = Field(..., description="Lista de coordenadas que compõem a rota")
 
 def validate_route_payload(payload: Dict[str, Any]) -> tuple[CoordinateSchema, CoordinateSchema]:
     """
