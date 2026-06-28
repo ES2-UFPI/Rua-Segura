@@ -2,17 +2,17 @@ import httpx
 import os
 from typing import Any, Dict
 
+ORS_BASE_URL = "https://api.openrouteservice.org/v2/directions/driving-car/geojson"
+
 class OpenRouteServiceClient:
     def __init__(self) -> None:
         self.api_key = os.getenv("ORS_API_KEY")
-        self.base_url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson"
+        self.base_url = ORS_BASE_URL
 
     def get_route(self, origin_lat: float, origin_lng: float, dest_lat: float, dest_lng: float) -> Dict[str, Any]:
         """
-        Busca a rota no OpenRouteService.
+        Busca as direções de uma rota no OpenRouteService via API HTTP.
         """
-        # Esqueleto inicial para o ciclo RED 1.
-        # A chamada HTTP real usará httpx.post e será mockada nos testes.
         headers = {
             "Authorization": self.api_key,
             "Content-Type": "application/json"
