@@ -12,6 +12,38 @@ class TestSafeRouteEndpoints(unittest.TestCase):
         self.client = TestClient(app)
         self.endpoint = "/api/routes/safe"
 
+        from unittest.mock import patch, MagicMock
+        self.patcher = patch("app.services.open_route_service.httpx.post")
+        self.mock_post = self.patcher.start()
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {
+                        "summary": {
+                            "distance": 1000.0,
+                            "duration": 300.0,
+                        }
+                    },
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [
+                            [-42.8060, -5.0930],
+                            [-42.8080, -5.0945],
+                        ],
+                    },
+                }
+            ],
+        }
+        self.mock_post.return_value = mock_response
+
+    def tearDown(self):
+        self.patcher.stop()
+
     def _valid_payload(self):
         return {
             "origin": {
@@ -34,7 +66,14 @@ class TestSafeRouteEndpoints(unittest.TestCase):
         response = self.client.post(self.endpoint, json=self._valid_payload())
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"status": "success"})
+        data = response.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["distance"], 1000.0)
+        self.assertEqual(data["duration"], 300.0)
+        self.assertEqual(data["geometry"], [
+            {"latitude": -5.0930, "longitude": -42.8060},
+            {"latitude": -5.0945, "longitude": -42.8080}
+        ])
 
     def test_calculate_safe_route_accepts_coordinate_boundaries(self):
         payload = {
@@ -48,10 +87,24 @@ class TestSafeRouteEndpoints(unittest.TestCase):
             }
         }
 
+        # Ajusta mock para as coordenadas limites
+        mock_response = self.mock_post.return_value
+        mock_response.json.return_value["features"][0]["geometry"]["coordinates"] = [
+            [-180.0, -90.0],
+            [180.0, 90.0]
+        ]
+
         response = self.client.post(self.endpoint, json=payload)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"status": "success"})
+        data = response.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["distance"], 1000.0)
+        self.assertEqual(data["duration"], 300.0)
+        self.assertEqual(data["geometry"], [
+            {"latitude": -90.0, "longitude": -180.0},
+            {"latitude": 90.0, "longitude": 180.0}
+        ])
 
     def test_calculate_safe_route_accepts_numeric_strings(self):
         payload = {
@@ -68,7 +121,14 @@ class TestSafeRouteEndpoints(unittest.TestCase):
         response = self.client.post(self.endpoint, json=payload)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"status": "success"})
+        data = response.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["distance"], 1000.0)
+        self.assertEqual(data["duration"], 300.0)
+        self.assertEqual(data["geometry"], [
+            {"latitude": -5.0930, "longitude": -42.8060},
+            {"latitude": -5.0945, "longitude": -42.8080}
+        ])
 
     def test_missing_origin(self):
         payload = {
