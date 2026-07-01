@@ -10,6 +10,7 @@ import {
 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import MapScreen from '@/components/MapScreen';
 import LocationReviewButton from '@/components/LocationReviewButton';
 import ReviewModal from '@/components/ReviewModal';
@@ -24,6 +25,7 @@ import { alertApi, AlertPayload } from '@/services/alertApi';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   
   const { 
     latitude: userLat, 
@@ -312,9 +314,11 @@ export default function HomeScreen() {
           <Text style={[styles.tabText, styles.tabTextActive]}>Mapa</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
-          <Ionicons name="star" size={22} color="#94a3b8" />
-          <Text style={styles.tabText}>Favoritos</Text>
+        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}
+          onPress={() => router.push('/route-search')}
+          >
+          <Ionicons name="git-branch-outline" size={22} color="#94a3b8" />
+          <Text style={styles.tabText}>Rotas</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
