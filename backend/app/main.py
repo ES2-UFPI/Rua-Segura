@@ -7,6 +7,7 @@ from app.controllers.review_controller import router as review_router
 from app.controllers.risk_controller import router as risk_router
 from app.controllers import alert_controller
 from app.controllers.route_controller import router as route_router
+from app.controllers.mock_sharing_controller import router as mock_sharing_router
 
 app = FastAPI(title="Rua Segura API")
 
@@ -22,6 +23,7 @@ app.include_router(review_router)
 app.include_router(risk_router)
 app.include_router(alert_controller.router)
 app.include_router(route_router)
+app.include_router(mock_sharing_router)
 
 @app.get("/")
 def read_root():
