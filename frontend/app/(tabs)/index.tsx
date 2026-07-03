@@ -6,6 +6,7 @@ import {
   Alert,
   Platform,
   TouchableOpacity,
+  Image
 } from 'react-native';
 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -45,6 +46,7 @@ export default function HomeScreen() {
   const [alerts, setAlerts] = useState<AlertPayload[]>([]);
   const [isRightHanded, setIsRightHanded] = useState(true);
   const [lastAlertId, setLastAlertId] = useState<string | null>(null);
+  const routeIcon = require('../../assets/images/route.png');
 
   useEffect(() => {
     console.log('[HomeScreen] Inicializando serviços de rastreamento...');
@@ -314,10 +316,17 @@ export default function HomeScreen() {
           <Text style={[styles.tabText, styles.tabTextActive]}>Mapa</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}
+        <TouchableOpacity
+          style={styles.tabItem}
+          activeOpacity={0.7}
           onPress={() => router.push('/route-search')}
-          >
-          <Ionicons name="git-branch-outline" size={22} color="#94a3b8" />
+        >
+          <Image
+            source={routeIcon}
+            style={styles.tabIconImage}
+            resizeMode="contain"
+          />
+
           <Text style={styles.tabText}>Rotas</Text>
         </TouchableOpacity>
 
@@ -494,6 +503,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flex: 1,
     paddingVertical: 4,
+  },
+  tabIconImage: {
+  width: 22,
+  height: 22,
+  tintColor: '#94a3b8',
   },
   tabText: {
     color: '#64748b',
