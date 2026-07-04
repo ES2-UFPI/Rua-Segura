@@ -51,27 +51,27 @@ const EMPTY_LOCATION: RouteLocationDraft = {
 };
 
 const SAVED_LOCATIONS: Suggestion[] = [
-  {
-    id: 'home',
-    label: 'Casa',
-    subtitle: 'Local salvo',
-    icon: 'home-outline',
-    coordinates: {
-      latitude: -5.091,
-      longitude: -42.802,
-    },
+ {
+  id: 'home',
+  label: 'Casa',
+  subtitle: 'Local salvo',
+  icon: 'home-outline',
+  coordinates: {
+    latitude: -5.0836,
+    longitude: -42.7934,
   },
-  {
-    id: 'work',
-    label: 'Trabalho',
-    subtitle: 'Local salvo',
-    icon: 'briefcase-outline',
-    coordinates: {
-      latitude: -5.0805,
-      longitude: -42.7901,
-    },
+},
+{
+  id: 'work',
+  label: 'Trabalho',
+  subtitle: 'Local salvo',
+  icon: 'briefcase-outline',
+  coordinates: {
+    latitude: -5.0805,
+    longitude: -42.7901,
   },
-];
+},
+]
 
 const RECENT_LOCATIONS: Suggestion[] = [
   {
@@ -219,26 +219,55 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
   };
 
   const handleSearch = async () => {
-    if (!isFormValid || isLoading) return;
+  if (!isFormValid || isLoading) return;
 
-    setIsLoading(true);
+  setIsLoading(true);
 
-    try {
-      const preparedRouteDraft = prepareRouteDraft();
+  try {
+    const preparedRouteDraft = prepareRouteDraft();
 
-      setRouteDraft(preparedRouteDraft);
+    setRouteDraft(preparedRouteDraft);
 
-      if (onSearch) {
-        await onSearch(preparedRouteDraft);
-      } else {
-        await new Promise((resolve) => setTimeout(resolve, 900));
-      }
-
-      console.log('Dados disponíveis para requisição de rota:', preparedRouteDraft);
-    } finally {
-      setIsLoading(false);
+    if (onSearch) {
+      await onSearch(preparedRouteDraft);
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 900));
     }
-  };
+
+    console.log(
+      'Dados disponíveis para requisição de rota:',
+      preparedRouteDraft,
+    );
+
+    router.push({
+      pathname: '/route-map',
+      params: {
+        originName: preparedRouteDraft.origin.text,
+        destinationName: preparedRouteDraft.destination.text,
+        originLatitude:
+          preparedRouteDraft.origin.coordinates?.latitude !== undefined
+            ? String(preparedRouteDraft.origin.coordinates.latitude)
+            : '',
+        originLongitude:
+          preparedRouteDraft.origin.coordinates?.longitude !== undefined
+            ? String(preparedRouteDraft.origin.coordinates.longitude)
+            : '',
+        destinationLatitude:
+          preparedRouteDraft.destination.coordinates?.latitude !== undefined
+            ? String(preparedRouteDraft.destination.coordinates.latitude)
+            : '',
+        destinationLongitude:
+          preparedRouteDraft.destination.coordinates?.longitude !== undefined
+            ? String(preparedRouteDraft.destination.coordinates.longitude)
+            : '',
+      },
+    });
+  } catch (error) {
+    console.error('Erro ao preparar rota:', error);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const renderSuggestionSection = (title: string, suggestions: Suggestion[]) => {
     return (
