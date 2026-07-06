@@ -85,11 +85,13 @@ function createMockRouteLine(
 type RouteSummaryCardProps = {
   originName: string;
   destinationName: string;
+  onStartRoute: () => void;
 };
 
 function RouteSummaryCard({
   originName,
   destinationName,
+  onStartRoute,
 }: RouteSummaryCardProps) {
   return (
     <View style={styles.routeSummaryCard}>
@@ -133,7 +135,7 @@ function RouteSummaryCard({
       <TouchableOpacity
         style={styles.startRouteButton}
         activeOpacity={0.85}
-        onPress={() => console.log('Iniciar rota em implementação')}
+        onPress={onStartRoute}
       >
         <Text style={styles.startRouteButtonText}>Iniciar rota</Text>
       </TouchableOpacity>
@@ -201,6 +203,23 @@ export default function RouteMapScreen() {
   const initialDestination = destinationCoords ?? FALLBACK_DESTINATION;
 
   const routeLineCoords = createMockRouteLine(initialOrigin, initialDestination);
+
+  const handleStartRoute = () => {
+    router.push({
+      pathname: '/active-route',
+      params: {
+        originName,
+        destinationName,
+        originLatitude: String(initialOrigin.latitude),
+        originLongitude: String(initialOrigin.longitude),
+        destinationLatitude: String(initialDestination.latitude),
+        destinationLongitude: String(initialDestination.longitude),
+        estimatedTime: '8 min',
+        totalDistance: '2,4 km',
+        riskLevel: 'Baixo',
+      },
+    });
+  };
 
   const mapInitialRegion = {
     latitude: (initialOrigin.latitude + initialDestination.latitude) / 2,
@@ -447,6 +466,7 @@ export default function RouteMapScreen() {
             <RouteSummaryCard
               originName={originName}
               destinationName={destinationName}
+              onStartRoute={handleStartRoute}
             />
           </View>
         </View>
@@ -488,6 +508,7 @@ export default function RouteMapScreen() {
             <RouteSummaryCard
               originName={originName}
               destinationName={destinationName}
+              onStartRoute={handleStartRoute}
             />
           </View>
         </View>
@@ -552,6 +573,7 @@ export default function RouteMapScreen() {
           <RouteSummaryCard
             originName={originName}
             destinationName={destinationName}
+            onStartRoute={handleStartRoute}
           />
         </View>
       </View>
