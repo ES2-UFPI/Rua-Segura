@@ -12,6 +12,9 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useShareTrip } from '@/hooks/useShareTrip';
+import { SafetyResourcesSheet } from '@/components/SafetyResourcesSheet';
+import { ShareSession } from '@/services/shareService';
 
 type RouteCoordinates = {
   latitude: number;
@@ -734,13 +737,15 @@ function TopInstructionCard({
 
 function FloatingMapControls({
   onRecenter,
+  onOpenSecurity,
   topOffset,
 }: {
   onRecenter: () => void;
+  onOpenSecurity: () => void;
   topOffset: number;
 }) {
   return (
-    <View style={[styles.floatingControls, { top: topOffset + 220 }]}>
+    <View style={[styles.floatingControls, { top: topOffset + 180 }]}>
       <TouchableOpacity
         style={styles.recenterFab}
         activeOpacity={0.85}
@@ -749,6 +754,16 @@ function FloatingMapControls({
         accessibilityLabel="Recentralizar mapa"
       >
         <Ionicons name="locate" size={25} color={COLORS.primaryGreen} />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.securityFab}
+        activeOpacity={0.85}
+        onPress={onOpenSecurity}
+        accessibilityRole="button"
+        accessibilityLabel="Recursos de segurança"
+      >
+        <Ionicons name="shield-checkmark" size={25} color={COLORS.primaryBlue} />
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -810,12 +825,6 @@ function BottomNavigationCard({
             </Text>
           </View>
         </View>
-
-        <View style={styles.riskBarRow}>
-          <View style={[styles.riskBar, styles.riskBarLow]} />
-          <View style={[styles.riskBar, styles.riskBarMedium]} />
-          <View style={[styles.riskBar, styles.riskBarHigh]} />
-        </View>
       </View>
 
       <View style={styles.bottomActionsRow}>
@@ -852,6 +861,19 @@ export default function ActiveRouteScreen() {
   const insets = useSafeAreaInsets();
 
   const [recenterSignal, setRecenterSignal] = useState(0);
+  const [isSecurityOpen, setIsSecurityOpen] = useState(false);
+
+  const {
+    activeSession,
+    isStarting,
+    isStopping,
+    isCopying,
+    errorMessage,
+    successMessage,
+    startSharing,
+    stopSharing,
+    copyShareLink,
+  } = useShareTrip();
 
   const originName = String(params.originName ?? '').trim();
   const destinationName = String(params.destinationName ?? '').trim();
@@ -961,6 +983,7 @@ export default function ActiveRouteScreen() {
 
         <FloatingMapControls
           onRecenter={handleRecenter}
+          onOpenSecurity={() => setIsSecurityOpen(true)}
           topOffset={instructionTopOffset}
         />
 
@@ -973,6 +996,21 @@ export default function ActiveRouteScreen() {
           onExit={() => router.back()}
           onRecenter={handleRecenter}
         />
+
+        {isSecurityOpen && (
+          <SafetyResourcesSheet
+            activeSession={activeSession}
+            isStarting={isStarting}
+            isStopping={isStopping}
+            isCopying={isCopying}
+            errorMessage={errorMessage}
+            successMessage={successMessage}
+            onStartSharing={() => startSharing(origin, destination)}
+            onStopSharing={stopSharing}
+            onCopyLink={copyShareLink}
+            onClose={() => setIsSecurityOpen(false)}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -1135,6 +1173,20 @@ const styles = StyleSheet.create({
   },
 
   recenterFab: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: COLORS.primaryBlue,
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 7,
+  },
+
+  securityFab: {
     width: 52,
     height: 52,
     borderRadius: 26,
