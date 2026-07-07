@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, TextInput, FlatList, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Animated, PanResponder } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useOccurrenceInteraction } from '../hooks/useOccurrenceInteraction';
 
@@ -19,7 +19,10 @@ interface OccurrenceDetailSheetProps {
   onClose: () => void;
 }
 
-export function OccurrenceDetailSheet({ occurrenceId, onClose }: OccurrenceDetailSheetProps) {
+export function OccurrenceDetailSheet({
+  occurrenceId,
+  onClose,
+}: OccurrenceDetailSheetProps) {
   const {
     occurrence,
     comments,
@@ -35,6 +38,59 @@ export function OccurrenceDetailSheet({ occurrenceId, onClose }: OccurrenceDetai
 
   const [commentText, setCommentText] = useState('');
   const [isReviewMode, setIsReviewMode] = useState(false);
+  const [sheetHeight, setSheetHeight] = useState(450);
+
+  const translateY = useRef(new Animated.Value(1000)).current;
+
+  useEffect(() => {
+    // Reset position and animate slide-up on mount / occurrence ID change
+    translateY.setValue(1000);
+    Animated.spring(translateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 50,
+      friction: 8,
+    }).start();
+  }, [occurrenceId, translateY]);
+
+  const handleClose = () => {
+    Animated.timing(translateY, {
+      toValue: 1000,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      onClose();
+    });
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dy) > 5 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          translateY.setValue(gestureState.dy);
+        } else {
+          // Provide resistance when dragging upwards
+          translateY.setValue(gestureState.dy * 0.15);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 150 || gestureState.vy > 0.5) {
+          handleClose();
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            tension: 50,
+            friction: 8,
+          }).start();
+        }
+      },
+    })
+  ).current;
 
   const handleConfirmComment = async () => {
     if (!commentText.trim()) return;
@@ -56,200 +112,216 @@ export function OccurrenceDetailSheet({ occurrenceId, onClose }: OccurrenceDetai
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.absoluteContainer} pointerEvents="box-none">
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose} />
-        <View style={styles.sheetContainer}>
-          <View style={styles.sheetHeader}>
-            <View style={styles.sheetHandle} />
-          </View>
-          <ActivityIndicator size="large" color={COLORS.primaryBlue} style={{ marginVertical: 40 }} />
-        </View>
-      </View>
-    );
-  }
-
-  if (!occurrence) return null;
-
-  const statusStyle = getStatusLabelAndColor(occurrence.communityStatus);
+  const statusStyle = occurrence ? getStatusLabelAndColor(occurrence.communityStatus) : null;
+  const overlayOpacity = translateY.interpolate({
+    inputRange: [0, 600],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
 
   return (
     <View style={styles.absoluteContainer} pointerEvents="box-none">
       {/* Overlay translúcido de fundo */}
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose} />
+      <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
+        <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={handleClose} />
+      </Animated.View>
 
       {/* Container do Bottom Sheet */}
-      <View style={styles.sheetContainer}>
+      <Animated.View
+        style={[
+          styles.sheetContainer,
+          {
+            transform: [{ translateY }],
+          },
+        ]}
+        onLayout={(e) => {
+          const height = e.nativeEvent.layout.height;
+          if (height > 0) {
+            setSheetHeight(height);
+          }
+        }}
+      >
         {/* Cabeçalho */}
-        <View style={styles.sheetHeader}>
+        <View style={styles.sheetHeader} {...panResponder.panHandlers}>
           <View style={styles.sheetHandle} />
-          <View style={styles.titleRow}>
-            <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={styles.categoryTitle}>{occurrence.category}</Text>
-              <Text style={styles.locationSubtitle}>{occurrence.locationDescription}</Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={COLORS.textDark} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Mensagens de Sucesso ou Erro */}
-        {errorMessage && (
-          <View style={[styles.banner, styles.errorBanner]}>
-            <Ionicons name="alert-circle-outline" size={18} color={COLORS.danger} />
-            <Text style={styles.errorText}>{errorMessage}</Text>
-          </View>
-        )}
-        {successMessage && (
-          <View style={[styles.banner, styles.successBanner]}>
-            <Ionicons name="checkmark-circle-outline" size={18} color={COLORS.primaryGreen} />
-            <Text style={styles.successText}>{successMessage}</Text>
-          </View>
-        )}
-
-        {/* Detalhes da Ocorrência */}
-        <View style={styles.occurrenceBody}>
-          <Text style={styles.descriptionText}>{occurrence.description}</Text>
-          <View style={styles.metaRow}>
-            <View style={[styles.badge, { backgroundColor: statusStyle.bg }]}>
-              <Text style={[styles.badgeText, { color: statusStyle.color }]}>{statusStyle.label}</Text>
-            </View>
-            <Text style={styles.dateText}>
-              {new Date(occurrence.createdAt).toLocaleDateString('pt-BR')} às {new Date(occurrence.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-            </Text>
-          </View>
-        </View>
-
-        {/* Seção de Validação/Confirmação com regras visuais de voto único */}
-        <View style={styles.validationSection}>
-          <TouchableOpacity
-            style={[
-              styles.valButton,
-              userVote === 'confirm' ? styles.confirmButtonActive : styles.confirmButtonInactive
-            ]}
-            disabled={isSubmittingValidation}
-            onPress={() => submitValidation('confirm')}
-          >
-            <Ionicons
-              name={userVote === 'confirm' ? 'checkmark-circle' : 'checkmark-circle-outline'}
-              size={20}
-              color={userVote === 'confirm' ? COLORS.white : COLORS.primaryGreen}
-            />
-            <Text style={[
-              styles.valButtonText,
-              userVote === 'confirm' ? styles.valButtonTextActive : styles.valButtonTextInactiveConfirm
-            ]}>
-              Confirmar ({occurrence.confirmationsCount})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.valButton,
-              userVote === 'contest' ? styles.contestButtonActive : styles.contestButtonInactive
-            ]}
-            disabled={isSubmittingValidation}
-            onPress={() => submitValidation('contest')}
-          >
-            <Ionicons
-              name={userVote === 'contest' ? 'close-circle' : 'close-circle-outline'}
-              size={20}
-              color={userVote === 'contest' ? COLORS.white : COLORS.danger}
-            />
-            <Text style={[
-              styles.valButtonText,
-              userVote === 'contest' ? styles.valButtonTextActive : styles.valButtonTextInactiveContest
-            ]}>
-              Contestar ({occurrence.contestationsCount})
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Lista de Comentários */}
-        <Text style={styles.sectionTitle}>Comentários da comunidade</Text>
-        <FlatList
-          data={comments}
-          keyExtractor={(item) => item.id.toString()}
-          style={styles.commentsList}
-          contentContainerStyle={{ paddingBottom: 8 }}
-          renderItem={({ item }) => (
-            <View style={styles.commentItem}>
-              <View style={styles.commentHeader}>
-                <Text style={styles.commentAuthor}>{item.authorName}</Text>
-                <Text style={styles.commentDate}>
-                  {new Date(item.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                </Text>
+          {occurrence && (
+            <View style={styles.titleRow}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={styles.categoryTitle}>{occurrence.category}</Text>
+                <Text style={styles.locationSubtitle}>{occurrence.locationDescription}</Text>
               </View>
-              <Text style={styles.commentContent}>{item.content}</Text>
+              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={COLORS.textDark} />
+              </TouchableOpacity>
             </View>
           )}
-          ListEmptyComponent={
-            <Text style={styles.emptyCommentsText}>Nenhum comentário adicionado ainda.</Text>
-          }
-        />
+        </View>
 
-        {/* Input de Escrever Comentário ou Área de Revisão */}
-        {isReviewMode ? (
-          <View style={styles.reviewContainer}>
-            <Text style={styles.reviewLabel}>Revisar comentário antes de enviar:</Text>
-            <View style={styles.reviewTextWrapper}>
-              <Text style={styles.reviewText}>{commentText}</Text>
-            </View>
-            <View style={styles.reviewActions}>
-              <TouchableOpacity
-                style={[styles.reviewBtn, styles.reviewCancelBtn]}
-                onPress={() => {
-                  setCommentText('');
-                  setIsReviewMode(false);
-                }}
-              >
-                <Text style={styles.reviewCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.reviewBtn, styles.reviewEditBtn]}
-                onPress={() => setIsReviewMode(false)}
-              >
-                <Text style={styles.reviewEditText}>Editar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.reviewBtn, styles.reviewConfirmBtn]}
-                onPress={handleConfirmComment}
-                disabled={isSubmittingComment}
-              >
-                {isSubmittingComment ? (
-                  <ActivityIndicator size="small" color={COLORS.white} />
-                ) : (
-                  <Text style={styles.reviewConfirmText}>Confirmar</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+        {loading ? (
+          <ActivityIndicator size="large" color={COLORS.primaryBlue} style={{ marginVertical: 40 }} />
+        ) : !occurrence ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+            <Text style={{ color: COLORS.textDark, fontWeight: '600' }}>Ocorrência não encontrada.</Text>
           </View>
         ) : (
-          <View style={styles.inputArea}>
-            <TextInput
-              style={styles.input}
-              placeholder="Adicione um comentário..."
-              placeholderTextColor={COLORS.textMuted}
-              value={commentText}
-              onChangeText={setCommentText}
-              maxLength={250}
+          <>
+            {/* Mensagens de Sucesso ou Erro */}
+            {errorMessage && (
+              <View style={[styles.banner, styles.errorBanner]}>
+                <Ionicons name="alert-circle-outline" size={18} color={COLORS.danger} />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            )}
+            {successMessage && (
+              <View style={[styles.banner, styles.successBanner]}>
+                <Ionicons name="checkmark-circle-outline" size={18} color={COLORS.primaryGreen} />
+                <Text style={styles.successText}>{successMessage}</Text>
+              </View>
+            )}
+
+            {/* Detalhes da Ocorrência */}
+            <View style={styles.occurrenceBody}>
+              <Text style={styles.descriptionText}>{occurrence.description}</Text>
+              <View style={styles.metaRow}>
+                <View style={[styles.badge, { backgroundColor: statusStyle?.bg }]}>
+                  <Text style={[styles.badgeText, { color: statusStyle?.color }]}>{statusStyle?.label}</Text>
+                </View>
+                <Text style={styles.dateText}>
+                  {new Date(occurrence.createdAt).toLocaleDateString('pt-BR')} às {new Date(occurrence.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+              </View>
+            </View>
+
+            {/* Seção de Validação/Confirmação com regras visuais de voto único */}
+            <View style={styles.validationSection}>
+              <TouchableOpacity
+                style={[
+                  styles.valButton,
+                  userVote === 'confirm' ? styles.confirmButtonActive : styles.confirmButtonInactive
+                ]}
+                disabled={isSubmittingValidation}
+                onPress={() => submitValidation('confirm')}
+              >
+                <Ionicons
+                  name={userVote === 'confirm' ? 'checkmark-circle' : 'checkmark-circle-outline'}
+                  size={20}
+                  color={userVote === 'confirm' ? COLORS.white : COLORS.primaryGreen}
+                />
+                <Text style={[
+                  styles.valButtonText,
+                  userVote === 'confirm' ? styles.valButtonTextActive : styles.valButtonTextInactiveConfirm
+                ]}>
+                  Confirmar ({occurrence.confirmationsCount})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.valButton,
+                  userVote === 'contest' ? styles.contestButtonActive : styles.contestButtonInactive
+                ]}
+                disabled={isSubmittingValidation}
+                onPress={() => submitValidation('contest')}
+              >
+                <Ionicons
+                  name={userVote === 'contest' ? 'close-circle' : 'close-circle-outline'}
+                  size={20}
+                  color={userVote === 'contest' ? COLORS.white : COLORS.danger}
+                />
+                <Text style={[
+                  styles.valButtonText,
+                  userVote === 'contest' ? styles.valButtonTextActive : styles.valButtonTextInactiveContest
+                ]}>
+                  Contestar ({occurrence.contestationsCount})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Lista de Comentários */}
+            <Text style={styles.sectionTitle}>Comentários da comunidade</Text>
+            <FlatList
+              data={comments}
+              keyExtractor={(item) => item.id.toString()}
+              style={styles.commentsList}
+              contentContainerStyle={{ paddingBottom: 8 }}
+              renderItem={({ item }) => (
+                <View style={styles.commentItem}>
+                  <View style={styles.commentHeader}>
+                    <Text style={styles.commentAuthor}>{item.authorName}</Text>
+                    <Text style={styles.commentDate}>
+                      {new Date(item.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+                  <Text style={styles.commentContent}>{item.content}</Text>
+                </View>
+              )}
+              ListEmptyComponent={
+                <Text style={styles.emptyCommentsText}>Nenhum comentário adicionado ainda.</Text>
+              }
             />
-            <TouchableOpacity
-              style={[styles.sendButton, !commentText.trim() && styles.sendButtonDisabled]}
-              onPress={() => {
-                if (commentText.trim()) {
-                  setIsReviewMode(true);
-                }
-              }}
-              disabled={!commentText.trim()}
-            >
-              <Ionicons name="send" size={18} color={COLORS.white} />
-            </TouchableOpacity>
-          </View>
+
+            {/* Input de Escrever Comentário ou Área de Revisão */}
+            {isReviewMode ? (
+              <View style={styles.reviewContainer}>
+                <Text style={styles.reviewLabel}>Revisar comentário antes de enviar:</Text>
+                <View style={styles.reviewTextWrapper}>
+                  <Text style={styles.reviewText}>{commentText}</Text>
+                </View>
+                <View style={styles.reviewActions}>
+                  <TouchableOpacity
+                    style={[styles.reviewBtn, styles.reviewCancelBtn]}
+                    onPress={() => {
+                      setCommentText('');
+                      setIsReviewMode(false);
+                    }}
+                  >
+                    <Text style={styles.reviewCancelText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.reviewBtn, styles.reviewEditBtn]}
+                    onPress={() => setIsReviewMode(false)}
+                  >
+                    <Text style={styles.reviewEditText}>Editar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.reviewBtn, styles.reviewConfirmBtn]}
+                    onPress={handleConfirmComment}
+                    disabled={isSubmittingComment}
+                  >
+                    {isSubmittingComment ? (
+                      <ActivityIndicator size="small" color={COLORS.white} />
+                    ) : (
+                      <Text style={styles.reviewConfirmText}>Confirmar</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.inputArea}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Adicione um comentário..."
+                  placeholderTextColor={COLORS.textMuted}
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  maxLength={250}
+                />
+                <TouchableOpacity
+                  style={[styles.sendButton, !commentText.trim() && styles.sendButtonDisabled]}
+                  onPress={() => {
+                    if (commentText.trim()) {
+                      setIsReviewMode(true);
+                    }
+                  }}
+                  disabled={!commentText.trim()}
+                >
+                  <Ionicons name="send" size={18} color={COLORS.white} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 }

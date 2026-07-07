@@ -28,14 +28,14 @@ import { alertApi, AlertPayload } from '@/services/alertApi';
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  
-  const { 
-    latitude: userLat, 
-    longitude: userLng, 
-    getUserLocation, 
-    startBackgroundLocation 
+
+  const {
+    latitude: userLat,
+    longitude: userLng,
+    getUserLocation,
+    startBackgroundLocation
   } = useLocation();
-  
+
   const [reviews, setReviews] = useState<LocationReviewResponse[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<{ latitude: number; longitude: number } | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -52,7 +52,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     console.log('[HomeScreen] Inicializando serviços de rastreamento...');
-    void startBackgroundLocation(); 
+    void startBackgroundLocation();
   }, []);
 
   const loadReviews = async () => {
@@ -84,7 +84,7 @@ export default function HomeScreen() {
   const loadCriticalAlerts = async (lat: number, lng: number) => {
     try {
       const activeAlerts = await alertApi.getAlerts({ latitude: lat, longitude: lng });
-      
+
       if (activeAlerts && activeAlerts.length > 0) {
         const novoAlerta = activeAlerts[0];
 
@@ -104,7 +104,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (userLat !== null && userLng !== null) {
       void loadCriticalAlerts(userLat, userLng);
-      
+
       const atualizarRiscoPorMovimento = async () => {
         try {
           const riskData = await reviewApi.getAreaRisk(userLat, userLng);
@@ -114,10 +114,10 @@ export default function HomeScreen() {
           console.error("Erro ao atualizar risco por movimento de GPS:", error);
         }
       };
-      
+
       void atualizarRiscoPorMovimento();
     }
-  }, [userLat, userLng]); 
+  }, [userLat, userLng]);
 
   const handleDismissAlert = (alertId: string) => {
     console.log(`[HomeScreen] Alerta ${alertId} fechado pelo usuário.`);
@@ -193,7 +193,7 @@ export default function HomeScreen() {
 
       setReviews((prev) => [newReview, ...prev]);
       setSelectedPoint(null);
-      
+
       if (Platform.OS === 'web') {
         alert('Avaliação cadastrada com sucesso!');
       } else {
@@ -248,17 +248,17 @@ export default function HomeScreen() {
             ]}
           />
         </TouchableOpacity>
-        
-        <RiskIndicator 
-          level={areaRisk.level} 
-          score={areaRisk.score} 
-          isRightHanded={isRightHanded} 
+
+        <RiskIndicator
+          level={areaRisk.level}
+          score={areaRisk.score}
+          isRightHanded={isRightHanded}
         />
-        
+
         {/* Balão de Controle do Modo Destro/Canhoto */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[
-            styles.handSelectorBubble, 
+            styles.handSelectorBubble,
             isRightHanded ? { right: 12 } : { left: 12 }
           ]}
           onPress={() => setIsRightHanded(!isRightHanded)}
@@ -270,19 +270,11 @@ export default function HomeScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Botão de Emergência mudando de lado */}
-        <EmergencyButton
-          onPress={handleEmergencyPress}
-          style={[
-            dynamicSideStyle, 
-            { bottom: 90 + insets.bottom, zIndex: 1000 } 
-          ]}
-        />
 
         {/* 🌟 CONTAINER DO BOTÃO: Movido para o ponto mais baixo (bottom: 8) e aplicando o scale */}
         <View style={[
-          styles.actionButtonsContainer, 
-          { bottom: 8 + insets.bottom } 
+          styles.actionButtonsContainer,
+          { bottom: 8 + insets.bottom }
         ]}>
           <View style={styles.smallButtonWrapper}>
             <LocationReviewButton
@@ -290,7 +282,7 @@ export default function HomeScreen() {
               onPress={handleReviewButtonClick}
             />
           </View>
-          
+
           {selectedPoint ? (
             <TouchableOpacity
               style={styles.clearSelectionButtonSmall}
@@ -308,10 +300,10 @@ export default function HomeScreen() {
           top: 0,
           left: 0,
           right: 0,
-          bottom: 150 + insets.bottom, 
-          pointerEvents: 'box-none', 
-          zIndex: 9999,              
-          elevation: 10,             
+          bottom: 150 + insets.bottom,
+          pointerEvents: 'box-none',
+          zIndex: 9999,
+          elevation: 10,
         }}>
           <AlertScreen alerts={alerts} onDismiss={handleDismissAlert} />
         </View>
@@ -369,6 +361,14 @@ export default function HomeScreen() {
           setConfirmModalVisible(false);
           setPendingReview(null);
         }}
+      />
+
+      <EmergencyButton
+        onPress={handleEmergencyPress}
+        style={[
+          dynamicSideStyle,
+          { bottom: 200 + insets.bottom, zIndex: 90 }
+        ]}
       />
 
       {activeReviewId !== null && (
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   },
   handSelectorBubble: {
     position: 'absolute',
-    top: 272, 
+    top: 272,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1e293b',
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   },
   // 🌟 ESTILO NOVO: Reduz o tamanho do botão em 15% de forma limpa e responsiva
   smallButtonWrapper: {
-    transform: [{ scale: 0.85 }], 
+    transform: [{ scale: 0.85 }],
   },
   clearSelectionButtonSmall: {
     flexDirection: 'row',
@@ -520,9 +520,9 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tabIconImage: {
-  width: 22,
-  height: 22,
-  tintColor: '#94a3b8',
+    width: 22,
+    height: 22,
+    tintColor: '#94a3b8',
   },
   tabText: {
     color: '#64748b',
@@ -531,6 +531,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   tabTextActive: {
-    color: '#2dd4bf', 
+    color: '#2dd4bf',
   },
 });
