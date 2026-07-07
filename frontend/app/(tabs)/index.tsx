@@ -18,6 +18,7 @@ import ReviewModal from '@/components/ReviewModal';
 import ConfirmReviewModal from '@/components/ConfirmReviewModal';
 import RiskIndicator from '@/components/RiskIndicator';
 import EmergencyButton from '@/components/EmergencyButton';
+import { OccurrenceDetailSheet } from '@/components/OccurrenceDetailSheet';
 import { reviewApi, LocationReviewResponse, RiskResponse } from '@/services/api';
 import { useLocation } from '@/hooks/useLocation';
 import { NotificationFacade } from '@/services/notifications/NotificationFacade';
@@ -46,6 +47,7 @@ export default function HomeScreen() {
   const [alerts, setAlerts] = useState<AlertPayload[]>([]);
   const [isRightHanded, setIsRightHanded] = useState(true);
   const [lastAlertId, setLastAlertId] = useState<string | null>(null);
+  const [activeReviewId, setActiveReviewId] = useState<number | null>(null);
   const routeIcon = require('../../assets/images/route.png');
 
   useEffect(() => {
@@ -221,6 +223,12 @@ export default function HomeScreen() {
           userLocation={userLat !== null && userLng !== null ? { latitude: userLat, longitude: userLng } : null}
           onRecenterPress={getUserLocation}
           isRightHanded={isRightHanded}
+          onReviewPress={(id) => {
+            const numId = parseInt(id.replace('mock-', ''), 10);
+            if (!isNaN(numId)) {
+              setActiveReviewId(numId);
+            }
+          }}
         />
 
         {/* Botão flutuante indicativo do status da API no topo do stack lateral */}
@@ -362,6 +370,13 @@ export default function HomeScreen() {
           setPendingReview(null);
         }}
       />
+
+      {activeReviewId !== null && (
+        <OccurrenceDetailSheet
+          occurrenceId={activeReviewId}
+          onClose={() => setActiveReviewId(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }
