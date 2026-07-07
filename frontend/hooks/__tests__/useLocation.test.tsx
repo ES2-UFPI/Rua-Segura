@@ -10,6 +10,11 @@ jest.mock('@/services/nativos/DeviceLocationService', () => ({
   },
 }));
 
+jest.mock('expo-task-manager', () => ({
+  isTaskRegisteredAsync: jest.fn().mockResolvedValue(false),
+  defineTask: jest.fn(),
+}));
+
 describe('Teste Unitário - Custom Hook: useLocation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
