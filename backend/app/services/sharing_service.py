@@ -34,31 +34,9 @@ class SharingService:
     ) -> SharingSession:
         origin = origin or current_location
 
-        for loc_name, loc in [
-            ("origin", origin),
-            ("currentLocation", current_location),
-            ("destination", destination)
-        ]:
-            if not isinstance(loc, dict):
-                raise ValueError(f"Objeto de {loc_name} inválido.")
-
-            lat = loc.get("latitude")
-            lng = loc.get("longitude")
-
-            if lat is None or lng is None:
-                raise ValueError(f"Coordenadas de {loc_name} incompletas.")
-
-            try:
-                f_lat = float(lat)
-                f_lng = float(lng)
-            except (ValueError, TypeError):
-                raise ValueError(f"Coordenadas de {loc_name} devem ser numéricas.")
-
-            if not (-90.0 <= f_lat <= 90.0):
-                raise ValueError("Latitude must be between -90 and 90")
-
-            if not (-180.0 <= f_lng <= 180.0):
-                raise ValueError("Longitude must be between -180 and 180")
+        validated_origin = self._validate_location("origin", origin)
+        validated_current_location = self._validate_location("currentLocation", current_location)
+        validated_destination = self._validate_location("destination", destination)
 
         token = uuid.uuid4().hex[:8]
         now = datetime.now(timezone.utc)
@@ -67,18 +45,9 @@ class SharingService:
         session = SharingSession(
             token=token,
             status="active",
-            origin={
-                "latitude": float(origin["latitude"]),
-                "longitude": float(origin["longitude"])
-            },
-            current_location={
-                "latitude": float(current_location["latitude"]),
-                "longitude": float(current_location["longitude"])
-            },
-            destination={
-                "latitude": float(destination["latitude"]),
-                "longitude": float(destination["longitude"])
-            },
+            origin=validated_origin,
+            current_location=validated_current_location,
+            destination=validated_destination,
             created_at=now,
             expires_at=expires_at,
             last_updated_at=now
@@ -106,17 +75,13 @@ class SharingService:
         if not token:
             raise ValueError("O token é obrigatório.")
 
-        try:
-            f_lat = float(latitude)
-            f_lng = float(longitude)
-        except (ValueError, TypeError):
-            raise ValueError("As coordenadas devem ser numéricas.")
-
-        if not (-90.0 <= f_lat <= 90.0):
-            raise ValueError("Latitude must be between -90 and 90")
-
-        if not (-180.0 <= f_lng <= 180.0):
-            raise ValueError("Longitude must be between -180 and 180")
+        validated_location = self._validate_location(
+            "currentLocation",
+            {
+                "latitude": latitude,
+                "longitude": longitude
+            }
+        )
 
         session = self.repository.find_by_token(token)
 
@@ -131,10 +96,7 @@ class SharingService:
         if session.status == "ended":
             raise SessionEndedError("Compartilhamento encerrado. Não é possível atualizar a localização.")
 
-        session.current_location = {
-            "latitude": f_lat,
-            "longitude": f_lng
-        }
+        session.current_location = validated_location
         session.last_updated_at = datetime.now(timezone.utc)
 
         return self.repository.save(session)
@@ -154,3 +116,30 @@ class SharingService:
         session.status = "ended"
 
         return self.repository.save(session), "Compartilhamento encerrado com sucesso."
+
+    def _validate_location(self, loc_name: str, loc: dict) -> dict:
+        if not isinstance(loc, dict):
+            raise ValueError(f"Objeto de {loc_name} inválido.")
+
+        latitude = loc.get("latitude")
+        longitude = loc.get("longitude")
+
+        if latitude is None or longitude is None:
+            raise ValueError(f"Coordenadas de {loc_name} incompletas.")
+
+        try:
+            validated_latitude = float(latitude)
+            validated_longitude = float(longitude)
+        except (ValueError, TypeError):
+            raise ValueError(f"Coordenadas de {loc_name} devem ser numéricas.")
+
+        if not (-90.0 <= validated_latitude <= 90.0):
+            raise ValueError("Latitude must be between -90 and 90")
+
+        if not (-180.0 <= validated_longitude <= 180.0):
+            raise ValueError("Longitude must be between -180 and 180")
+
+        return {
+            "latitude": validated_latitude,
+            "longitude": validated_longitude
+        }
