@@ -53,6 +53,7 @@ interface MapScreenProps {
   userLocation: { latitude: number; longitude: number } | null;
   onRecenterPress?: () => Promise<void> | void;
   isRightHanded?: boolean; // Recebe a preferência manual para inverter os lados
+  onReviewPress?: (id: string) => void;
 }
 
 export default function MapScreen({
@@ -63,6 +64,7 @@ export default function MapScreen({
   userLocation,
   onRecenterPress,
   isRightHanded = true,
+  onReviewPress,
 }: MapScreenProps) {
   const isWeb = Platform.OS === 'web';
   const webMapId = 'leaflet-map-container';
@@ -245,8 +247,15 @@ export default function MapScreen({
       });
 
       const marker = L.marker([review.latitude, review.longitude], { icon: customIcon })
-        .addTo(map)
-        .bindPopup(`
+        .addTo(map);
+
+      marker.on('click', () => {
+        if (onReviewPress) {
+          onReviewPress(review.id);
+        }
+      });
+
+      marker.bindPopup(`
           <div style="font-family: sans-serif; color: #1e293b; padding: 4px;">
             <h4 style="margin: 0 0 4px 0; color: ${pinColor}; font-weight: 800;">${review.category}</h4>
             <p style="margin: 0; font-size: 13px;">${review.description}</p>
@@ -359,6 +368,11 @@ export default function MapScreen({
             title={review.category}
             description={review.description}
             pinColor={getCategoryColor(review.category)}
+            onPress={() => {
+              if (onReviewPress) {
+                onReviewPress(review.id);
+              }
+            }}
           />
         ))}
 
