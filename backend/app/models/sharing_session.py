@@ -1,21 +1,25 @@
 from datetime import datetime
 
+
 class SharingSession:
     """
     Entidade de domínio que representa uma sessão de compartilhamento de trajeto mockado.
     """
+
     def __init__(
         self,
         token: str,
         status: str,
-        current_location: dict,  # {"latitude": float, "longitude": float}
-        destination: dict,       # {"latitude": float, "longitude": float}
+        origin: dict,
+        current_location: dict,
+        destination: dict,
         created_at: datetime,
         expires_at: datetime,
         last_updated_at: datetime
     ):
         self.token = token
         self.status = status
+        self.origin = origin
         self.current_location = current_location
         self.destination = destination
         self.created_at = created_at
@@ -26,6 +30,7 @@ class SharingSession:
         return {
             "token": self.token,
             "status": self.status,
+            "origin": self.origin,
             "currentLocation": self.current_location,
             "destination": self.destination,
             "createdAt": self.created_at.isoformat(),
