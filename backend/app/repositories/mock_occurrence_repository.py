@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 class InMemoryOccurrenceRepository:
     def __init__(self):
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._occurrences: Dict[int, dict] = {}
         self._comments: Dict[int, List[dict]] = {}
         self._next_comment_id = 1
@@ -43,17 +43,35 @@ class InMemoryOccurrenceRepository:
 
     def get_occurrence(self, occurrence_id: int) -> Optional[dict]:
         with self._lock:
+            if occurrence_id not in self._occurrences:
+                # Tenta buscar a ocorrência nas avaliações salvas no review_controller
+                try:
+                    from app.controllers.review_controller import _in_memory_repository
+                    review = _in_memory_repository.find_by_id(str(occurrence_id))
+                    if review:
+                        self._occurrences[occurrence_id] = {
+                            "id": occurrence_id,
+                            "category": review.category,
+                            "description": review.description,
+                            "locationDescription": "Localizado nas coordenadas",
+                            "createdAt": review.timestamp,
+                            "confirmationsCount": 0,
+                            "contestationsCount": 0,
+                            "communityStatus": "pending"
+                        }
+                except Exception:
+                    pass
             return self._occurrences.get(occurrence_id)
 
     def get_comments(self, occurrence_id: int) -> Optional[List[dict]]:
         with self._lock:
-            if occurrence_id not in self._occurrences:
+            if not self.get_occurrence(occurrence_id):
                 return None
             return list(self._comments.get(occurrence_id, []))
 
     def add_comment(self, occurrence_id: int, content: str) -> Optional[dict]:
         with self._lock:
-            if occurrence_id not in self._occurrences:
+            if not self.get_occurrence(occurrence_id):
                 return None
             
             new_comment = {
@@ -79,8 +97,14 @@ class InMemoryOccurrenceRepository:
                 occurrence["confirmationsCount"] += 1
             elif validation_type == "contest":
                 occurrence["contestationsCount"] += 1
+            elif validation_type == "remove_confirm":
+                if occurrence["confirmationsCount"] > 0:
+                    occurrence["confirmationsCount"] -= 1
+            elif validation_type == "remove_contest":
+                if occurrence["contestationsCount"] > 0:
+                    occurrence["contestationsCount"] -= 1
             else:
-                raise ValueError("Validation type must be 'confirm' or 'contest'")
+                raise ValueError("Validation type must be 'confirm', 'contest', 'remove_confirm' or 'remove_contest'")
                 
             # Atualiza o communityStatus
             conf = occurrence["confirmationsCount"]

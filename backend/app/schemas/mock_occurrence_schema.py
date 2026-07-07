@@ -22,4 +22,4 @@ class MockCommentCreateRequest(BaseModel):
     content: str = Field(..., min_length=1, description="Conteúdo textual do comentário")
 
 class MockValidationCreateRequest(BaseModel):
-    type: Literal["confirm", "contest"] = Field(..., description="Tipo de validação: 'confirm' ou 'contest'")
+    type: Literal["confirm", "contest", "remove_confirm", "remove_contest"] = Field(..., description="Tipo de validação: 'confirm', 'contest', 'remove_confirm' ou 'remove_contest'")
