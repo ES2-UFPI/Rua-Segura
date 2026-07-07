@@ -47,7 +47,7 @@ export default function HomeScreen() {
   const [alerts, setAlerts] = useState<AlertPayload[]>([]);
   const [isRightHanded, setIsRightHanded] = useState(true);
   const [lastAlertId, setLastAlertId] = useState<string | null>(null);
-  const [activeReviewId, setActiveReviewId] = useState<number | null>(null);
+  const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
   const routeIcon = require('../../assets/images/route.png');
 
   useEffect(() => {
@@ -224,10 +224,8 @@ export default function HomeScreen() {
           onRecenterPress={getUserLocation}
           isRightHanded={isRightHanded}
           onReviewPress={(id) => {
-            const numId = parseInt(id.replace('mock-', ''), 10);
-            if (!isNaN(numId)) {
-              setActiveReviewId(numId);
-            }
+            const cleanId = id.replace('mock-', '');
+            setActiveReviewId(cleanId);
           }}
         />
 

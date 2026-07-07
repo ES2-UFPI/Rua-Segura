@@ -1,6 +1,6 @@
 import threading
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 class InMemoryOccurrenceRepository:
     def __init__(self):
@@ -41,7 +41,11 @@ class InMemoryOccurrenceRepository:
             self._next_comment_id = 1
             self._seed_data()
 
-    def get_occurrence(self, occurrence_id: int) -> Optional[dict]:
+    def get_occurrence(self, occurrence_id: Union[int, str]) -> Optional[dict]:
+        try:
+            occurrence_id = int(occurrence_id)
+        except (ValueError, TypeError):
+            pass
         with self._lock:
             if occurrence_id not in self._occurrences:
                 # Tenta buscar a ocorrência nas avaliações salvas no review_controller
@@ -63,13 +67,21 @@ class InMemoryOccurrenceRepository:
                     pass
             return self._occurrences.get(occurrence_id)
 
-    def get_comments(self, occurrence_id: int) -> Optional[List[dict]]:
+    def get_comments(self, occurrence_id: Union[int, str]) -> Optional[List[dict]]:
+        try:
+            occurrence_id = int(occurrence_id)
+        except (ValueError, TypeError):
+            pass
         with self._lock:
             if not self.get_occurrence(occurrence_id):
                 return None
             return list(self._comments.get(occurrence_id, []))
 
-    def add_comment(self, occurrence_id: int, content: str) -> Optional[dict]:
+    def add_comment(self, occurrence_id: Union[int, str], content: str) -> Optional[dict]:
+        try:
+            occurrence_id = int(occurrence_id)
+        except (ValueError, TypeError):
+            pass
         with self._lock:
             if not self.get_occurrence(occurrence_id):
                 return None
@@ -87,9 +99,13 @@ class InMemoryOccurrenceRepository:
             self._comments[occurrence_id].append(new_comment)
             return new_comment
 
-    def add_validation(self, occurrence_id: int, validation_type: str) -> Optional[dict]:
+    def add_validation(self, occurrence_id: Union[int, str], validation_type: str) -> Optional[dict]:
+        try:
+            occurrence_id = int(occurrence_id)
+        except (ValueError, TypeError):
+            pass
         with self._lock:
-            occurrence = self._occurrences.get(occurrence_id)
+            occurrence = self.get_occurrence(occurrence_id)
             if not occurrence:
                 return None
             

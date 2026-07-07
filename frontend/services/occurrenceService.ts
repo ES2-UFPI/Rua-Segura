@@ -3,7 +3,7 @@ import { API_URL } from '../config/api';
 const BASE_URL = API_URL;
 
 export interface MockOccurrence {
-  id: number;
+  id: string;
   category: string;
   description: string;
   locationDescription: string;
@@ -24,7 +24,7 @@ export const occurrenceService = {
   /**
    * Obtém os detalhes de uma ocorrência mockada específica.
    */
-  async getOccurrence(id: number): Promise<MockOccurrence> {
+  async getOccurrence(id: string): Promise<MockOccurrence> {
     try {
       const res = await fetch(`${BASE_URL}/api/mock/occurrences/${id}`, {
         method: 'GET',
@@ -35,7 +35,8 @@ export const occurrenceService = {
       if (!res.ok) {
         throw new Error(`Erro ao obter detalhes da ocorrência: ${res.status}`);
       }
-      return await res.json() as MockOccurrence;
+      const data = await res.json() as MockOccurrence;
+      return { ...data, id: String(data.id) };
     } catch (error) {
       console.error('Erro na chamada occurrenceService.getOccurrence:', error);
       throw error;
@@ -45,7 +46,7 @@ export const occurrenceService = {
   /**
    * Lista os comentários de uma ocorrência mockada.
    */
-  async getComments(id: number): Promise<MockComment[]> {
+  async getComments(id: string): Promise<MockComment[]> {
     try {
       const res = await fetch(`${BASE_URL}/api/mock/occurrences/${id}/comments`, {
         method: 'GET',
@@ -67,7 +68,7 @@ export const occurrenceService = {
    * Envia um comentário para a ocorrência mockada.
    * Valida se não está vazio através do minLength=1 do Pydantic (erro 422).
    */
-  async addComment(id: number, content: string): Promise<MockComment> {
+  async addComment(id: string, content: string): Promise<MockComment> {
     try {
       const res = await fetch(`${BASE_URL}/api/mock/occurrences/${id}/comments`, {
         method: 'POST',
@@ -94,7 +95,7 @@ export const occurrenceService = {
   /**
    * Registra a confirmação ou contestação da ocorrência.
    */
-  async addValidation(id: number, type: 'confirm' | 'contest' | 'remove_confirm' | 'remove_contest'): Promise<MockOccurrence> {
+  async addValidation(id: string, type: 'confirm' | 'contest' | 'remove_confirm' | 'remove_contest'): Promise<MockOccurrence> {
     try {
       const res = await fetch(`${BASE_URL}/api/mock/occurrences/${id}/validations`, {
         method: 'POST',
@@ -111,7 +112,8 @@ export const occurrenceService = {
         throw new Error(message);
       }
 
-      return await res.json() as MockOccurrence;
+      const data = await res.json() as MockOccurrence;
+      return { ...data, id: String(data.id) };
     } catch (error) {
       console.error('Erro na chamada occurrenceService.addValidation:', error);
       throw error;

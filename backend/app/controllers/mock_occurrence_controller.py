@@ -14,7 +14,7 @@ _repository = InMemoryOccurrenceRepository()
 
 @router.get("/mock/occurrences/{id}", response_model=MockOccurrenceResponse)
 @router.get("/api/mock/occurrences/{id}", response_model=MockOccurrenceResponse)
-def get_occurrence(id: int):
+def get_occurrence(id: str):
     """
     Retorna os detalhes de uma ocorrência mockada pelo ID.
     """
@@ -28,7 +28,7 @@ def get_occurrence(id: int):
 
 @router.get("/mock/occurrences/{id}/comments", response_model=List[MockCommentResponse])
 @router.get("/api/mock/occurrences/{id}/comments", response_model=List[MockCommentResponse])
-def get_comments(id: int):
+def get_comments(id: str):
     """
     Lista os comentários de uma ocorrência mockada.
     """
@@ -42,7 +42,7 @@ def get_comments(id: int):
 
 @router.post("/mock/occurrences/{id}/comments", response_model=MockCommentResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/api/mock/occurrences/{id}/comments", response_model=MockCommentResponse, status_code=status.HTTP_201_CREATED)
-def add_comment(id: int, payload: MockCommentCreateRequest):
+def add_comment(id: str, payload: MockCommentCreateRequest):
     """
     Envia um novo comentário para a ocorrência mockada.
     """
@@ -56,7 +56,7 @@ def add_comment(id: int, payload: MockCommentCreateRequest):
 
 @router.post("/mock/occurrences/{id}/validations", response_model=MockOccurrenceResponse)
 @router.post("/api/mock/occurrences/{id}/validations", response_model=MockOccurrenceResponse)
-def add_validation(id: int, payload: MockValidationCreateRequest):
+def add_validation(id: str, payload: MockValidationCreateRequest):
     """
     Registra confirmação ou contestação da ocorrência mockada.
     """
