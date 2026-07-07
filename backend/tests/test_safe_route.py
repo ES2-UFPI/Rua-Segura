@@ -328,3 +328,228 @@ def test_safe_route_integration_with_open_route_service(monkeypatch):
     
     assert len(called) == 1
 
+
+def test_safe_route_consolidated_response_success(monkeypatch):
+    client = TestClient(app)
+    endpoint = "/api/routes/safe"
+    
+    class FakeResponse:
+        def __init__(self, status_code, json_data):
+            self.status_code = status_code
+            self._json_data = json_data
+            
+        def json(self):
+            return self._json_data
+            
+    def fake_post(url, headers=None, json=None, timeout=None):
+        return FakeResponse(
+            200,
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "summary": {
+                                "distance": 1500.0,
+                                "duration": 400.0,
+                            }
+                        },
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [
+                                [-42.8101, -5.0892],
+                                [-42.8080, -5.0870],
+                                [-42.8015, -5.0804]
+                            ],
+                        },
+                    }
+                ],
+            },
+        )
+        
+    monkeypatch.setattr("app.services.open_route_service.httpx.post", fake_post)
+    
+    # Adicionar uma ocorrência de teste perto de [-42.8080, -5.0870] (distância 0 metros)
+    from app.controllers.review_controller import _in_memory_repository
+    from app.models.location_review import LocationReview
+    from datetime import datetime, timezone
+    
+    original_reviews = list(_in_memory_repository._reviews)
+    test_review = LocationReview(
+        id="999",
+        category="Assalto",
+        description="Assalto perto da rota",
+        latitude=-5.0870,
+        longitude=-42.8080,
+        timestamp=datetime.now(timezone.utc)
+    )
+    _in_memory_repository._reviews.append(test_review)
+    
+    try:
+        payload = {
+            "origin": {
+                "latitude": -5.0892,
+                "longitude": -42.8101
+            },
+            "destination": {
+                "latitude": -5.0804,
+                "longitude": -42.8015
+            }
+        }
+        
+        response = client.post(endpoint, json=payload)
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Validar campos antigos de retrocompatibilidade
+        assert data["status"] == "success"
+        assert data["distance"] == 1500.0
+        assert data["duration"] == 400.0
+        assert len(data["geometry"]) == 3
+        
+        # Validar novos campos
+        assert data["distanceMeters"] == 1500.0
+        assert data["durationSeconds"] == 400.0
+        assert data["points"] == [
+            {"latitude": -5.0892, "longitude": -42.8101},
+            {"latitude": -5.0870, "longitude": -42.8080},
+            {"latitude": -5.0804, "longitude": -42.8015}
+        ]
+        assert data["route"]["type"] == "LineString"
+        assert data["route"]["coordinates"] == [
+            [-42.8101, -5.0892],
+            [-42.8080, -5.0870],
+            [-42.8015, -5.0804]
+        ]
+        
+        # Validar o risco (LOW ou MEDIUM dependendo do score)
+        # Assalto tem peso 3, que é < 5, então o nível de risco da HeuristicRiskStrategy é "AZUL" -> "LOW"
+        assert data["risk"]["level"] == "LOW"
+        assert data["risk"]["score"] == 3
+        assert data["risk"]["nearbyOccurrencesCount"] == 1
+        assert data["risk"]["intersectedRiskZonesCount"] == 0
+        assert data["risk"]["description"] == "Rota com baixo risco identificado."
+        
+        # Validar ocorrência próxima
+        assert len(data["nearbyOccurrences"]) == 1
+        assert data["nearbyOccurrences"][0]["id"] == 999
+        assert data["nearbyOccurrences"][0]["type"] == "ASSALTO"
+        assert data["nearbyOccurrences"][0]["latitude"] == -5.0870
+        assert data["nearbyOccurrences"][0]["longitude"] == -42.8080
+        assert data["nearbyOccurrences"][0]["distanceFromRouteMeters"] == 0.0
+        
+    finally:
+        _in_memory_repository._reviews = original_reviews
+
+
+def test_safe_route_failure_external_service_returns_502(monkeypatch):
+    client = TestClient(app)
+    endpoint = "/api/routes/safe"
+    
+    def fake_post_error(url, headers=None, json=None, timeout=None):
+        raise Exception("Connection timed out")
+        
+    monkeypatch.setattr("app.services.open_route_service.httpx.post", fake_post_error)
+    
+    payload = {
+        "origin": {
+            "latitude": -5.0892,
+            "longitude": -42.8101
+        },
+        "destination": {
+            "latitude": -5.0804,
+            "longitude": -42.8015
+        }
+    }
+    
+    response = client.post(endpoint, json=payload)
+    
+    assert response.status_code == 502
+    data = response.json()
+    assert data == {"message": "Não foi possível calcular a rota no momento."}
+
+
+def test_safe_route_high_risk_level(monkeypatch):
+    client = TestClient(app)
+    endpoint = "/api/routes/safe"
+    
+    class FakeResponse:
+        def __init__(self, status_code, json_data):
+            self.status_code = status_code
+            self._json_data = json_data
+            
+        def json(self):
+            return self._json_data
+            
+    def fake_post(url, headers=None, json=None, timeout=None):
+        return FakeResponse(
+            200,
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "summary": {
+                                "distance": 1000.0,
+                                "duration": 200.0,
+                            }
+                        },
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [
+                                [-42.8100, -5.0890],
+                                [-42.8080, -5.0870]
+                            ],
+                        },
+                    }
+                ],
+            },
+        )
+        
+    monkeypatch.setattr("app.services.open_route_service.httpx.post", fake_post)
+    
+    from app.controllers.review_controller import _in_memory_repository
+    from app.models.location_review import LocationReview
+    from datetime import datetime, timezone
+    
+    original_reviews = list(_in_memory_repository._reviews)
+    # Adicionar 5 ocorrências de "Assalto" (cada uma peso 3, total 15, que dá VERMELHO -> HIGH)
+    test_reviews = [
+        LocationReview(
+            id=f"99{i}",
+            category="Assalto",
+            description=f"Assalto {i}",
+            latitude=-5.0870,
+            longitude=-42.8080,
+            timestamp=datetime.now(timezone.utc)
+        ) for i in range(5)
+    ]
+    _in_memory_repository._reviews.extend(test_reviews)
+    
+    try:
+        payload = {
+            "origin": {
+                "latitude": -5.0890,
+                "longitude": -42.8100
+            },
+            "destination": {
+                "latitude": -5.0870,
+                "longitude": -42.8080
+            }
+        }
+        
+        response = client.post(endpoint, json=payload)
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["risk"]["level"] == "HIGH"
+        assert data["risk"]["score"] == 15
+        assert data["risk"]["nearbyOccurrencesCount"] == 5
+        assert data["risk"]["description"] == "Rota com alto risco identificado."
+        assert len(data["nearbyOccurrences"]) == 5
+        
+    finally:
+        _in_memory_repository._reviews = original_reviews
