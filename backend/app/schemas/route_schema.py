@@ -1,16 +1,41 @@
 from pydantic import BaseModel, Field
 from fastapi import HTTPException, status
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 class CoordinateSchema(BaseModel):
     latitude: float = Field(..., description="Latitude da coordenada")
     longitude: float = Field(..., description="Longitude da coordenada")
 
+class RiskInfoSchema(BaseModel):
+    level: str = Field(..., description="Nível calculado de risco: LOW, MEDIUM, HIGH")
+    score: int = Field(..., description="Pontuação de risco acumulada")
+    description: str = Field(..., description="Descrição resumida do risco da rota")
+    nearbyOccurrencesCount: int = Field(..., description="Quantidade de ocorrências próximas detectadas")
+    intersectedRiskZonesCount: int = Field(..., description="Quantidade de zonas de risco intersectadas")
+
+class RouteGeometrySchema(BaseModel):
+    type: str = Field("LineString", description="Tipo de geometria GeoJSON")
+    coordinates: List[List[float]] = Field(..., description="Lista de coordenadas [longitude, latitude]")
+
+class NearbyOccurrenceSchema(BaseModel):
+    id: Union[int, str] = Field(..., description="ID da ocorrência")
+    type: str = Field(..., description="Tipo/categoria de ocorrência")
+    latitude: float = Field(..., description="Coordenada de latitude")
+    longitude: float = Field(..., description="Coordenada de longitude")
+    distanceFromRouteMeters: float = Field(..., description="Distância da ocorrência à rota em metros")
+
 class SafeRouteResponse(BaseModel):
     status: str = Field(..., description="Status do cálculo da rota")
-    distance: float = Field(..., description="Distância da rota em metros")
-    duration: float = Field(..., description="Duração estimada em segundos")
-    geometry: List[CoordinateSchema] = Field(..., description="Lista de coordenadas que compõem a rota")
+    distance: float = Field(..., description="Distância da rota em metros (compatibilidade)")
+    duration: float = Field(..., description="Duração estimada em segundos (compatibilidade)")
+    geometry: List[CoordinateSchema] = Field(..., description="Lista de coordenadas que compõem a rota (compatibilidade)")
+    
+    distanceMeters: float = Field(..., description="Distância total da rota em metros")
+    durationSeconds: float = Field(..., description="Duração total da rota em segundos")
+    risk: RiskInfoSchema = Field(..., description="Consolidado de risco da rota")
+    route: RouteGeometrySchema = Field(..., description="Geometria LineString da rota")
+    points: List[CoordinateSchema] = Field(..., description="Lista de pontos formatados da rota")
+    nearbyOccurrences: List[NearbyOccurrenceSchema] = Field(..., description="Lista de ocorrências próximas à rota")
 
 def validate_route_payload(payload: Dict[str, Any]) -> tuple[CoordinateSchema, CoordinateSchema]:
     """
