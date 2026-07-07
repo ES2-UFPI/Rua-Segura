@@ -195,3 +195,48 @@ class TestMockSharingEndpoints(unittest.TestCase):
         )
         self.assertEqual(patch_response.status_code, 410)
         self.assertEqual(patch_response.json()["detail"], "Sessão de compartilhamento expirada.")
+
+    def test_create_session_with_origin(self):
+        payload = {
+            "origin": {
+                "latitude": -5.0880,
+                "longitude": -42.8000
+            },
+            "currentLocation": {
+                "latitude": -5.0892,
+                "longitude": -42.8016
+            },
+            "destination": {
+                "latitude": -5.0911,
+                "longitude": -42.8033
+            }
+        }
+
+        response = self.client.post("/mock/sharing-sessions", json=payload)
+
+        self.assertEqual(response.status_code, 201)
+
+        data = response.json()
+        token = data["token"]
+
+        session = _repository.find_by_token(token)
+
+        self.assertIsNotNone(session)
+        self.assertEqual(session.origin["latitude"], -5.0880)
+        self.assertEqual(session.origin["longitude"], -42.8000)
+
+    def test_expired_session_should_update_status_to_expired(self):
+        session = _sharing_service.create_session(
+            current_location={"latitude": -5.0892, "longitude": -42.8016},
+            destination={"latitude": -5.0911, "longitude": -42.8033}
+        )
+
+        session.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        _repository.save(session)
+
+        response = self.client.get(f"/mock/shared-routes/{session.token}")
+
+        self.assertEqual(response.status_code, 410)
+
+        expired_session = _repository.find_by_token(session.token)
+        self.assertEqual(expired_session.status, "expired")
