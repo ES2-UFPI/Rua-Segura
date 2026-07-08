@@ -68,7 +68,19 @@ class RiskService:
         nearby_reviews = []
         nearby_occurrences_data = []
 
-        for review in all_reviews:
+         # Converte o raio de busca de metros para graus decimais (aprox. 111.111 metros por grau)
+        deg_offset = radius_meters / 111111.0
+        # Encontra a Bounding Box da rota inteira
+        latitudes = [pt[0] for pt in route_points]
+        longitudes = [pt[1] for pt in route_points]
+        min_lat, max_lat = min(latitudes) - deg_offset, max(latitudes) + deg_offset
+        min_lng, max_lng = min(longitudes) - deg_offset, max(longitudes) + deg_offset
+        # Pré-filtra as ocorrências de forma rápida antes de calcular a distância ponto-a-segmento
+        relevant_reviews = [
+            review for review in all_reviews
+            if min_lat <= review.latitude <= max_lat and min_lng <= review.longitude <= max_lng
+        ]
+        for review in relevant_reviews:
             min_dist = float("inf")
             if len(route_points) == 0:
                 continue
@@ -87,6 +99,8 @@ class RiskService:
                         min_dist = dist
 
             if min_dist <= radius_meters:
+                # Injeta dinamicamente a distância para que a estratégia possa usar no cálculo
+                review.distance_from_route = min_dist
                 nearby_reviews.append(review)
                 try:
                     occ_id = int(review.id)
