@@ -4,7 +4,7 @@ export function useSharedRouteTracking(token: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<'INVALID' | 'EXPIRED' | 'NETWORK' | null>(null);
   const [session, setSession] = useState<SharedRouteDetails | null>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fetchTrackingData = async (isInitial = false) => {
     if (!token) return;
     try {
