@@ -229,6 +229,7 @@ export default function HomeScreen() {
           }}
         />
 
+
         {/* Botão flutuante indicativo do status da API no topo do stack lateral */}
         <TouchableOpacity
           style={[
@@ -269,7 +270,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
 
-        {/* 🌟 CONTAINER DO BOTÃO: Movido para o ponto mais baixo (bottom: 8) e aplicando o scale */}
+        {/* CONTAINER DO BOTÃO */}
         <View style={[
           styles.actionButtonsContainer,
           { bottom: 8 + insets.bottom }
@@ -422,9 +423,10 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
+
   apiStatusFloating: {
     position: 'absolute',
-    top: 122,
+    top: 152, // Ajustado ligeiramente para baixo para não sobrepor o container de teste
     width: 38,
     height: 38,
     borderRadius: 19,
@@ -478,7 +480,6 @@ const styles = StyleSheet.create({
     zIndex: 99,
     elevation: 8,
   },
-  // 🌟 ESTILO NOVO: Reduz o tamanho do botão em 15% de forma limpa e responsiva
   smallButtonWrapper: {
     transform: [{ scale: 0.85 }],
   },
