@@ -18,7 +18,7 @@ export const RiskVisualStrategy: Record<RiskLevel, RiskVisualConfig> = {
     color: '#036D9A', 
     icon: 'shield-checkmark-outline',
     bannerText: 'Zona de Baixo Risco',
-    description: 'Nenhuma criticidade reportada próxima. Transite com atenção habitual.',
+    description: 'Nenhuma ocorrência reportada próxima. Transite com atenção habitual.',
     textColor: '#ffffff',
   },
   AMARELO: {
@@ -32,7 +32,7 @@ export const RiskVisualStrategy: Record<RiskLevel, RiskVisualConfig> = {
     color: '#CF0000',
     icon: 'alert-circle-outline',
     bannerText: 'Zona Crítica',
-    description: 'Elevada taxa de severidade e incidentes. Alerta máximo. Evite transitar a pé se possível.',
+    description: 'Elevada taxa de ocorrências de alta severidade e incidentes. Alerta máximo. Evite transitar a pé se possível.',
     textColor: '#ffffff',
   },
 };
