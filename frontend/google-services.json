@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "414233458689",
+    "project_id": "rua-segura-dev-gio",
+    "storage_bucket": "rua-segura-dev-gio.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:414233458689:android:b5876566ba3e1f08362800",
+        "android_client_info": {
+          "package_name": "com.ruasegura.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBM0QQUYRXO0n3ivChFvSLkANx1e0XK85I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
