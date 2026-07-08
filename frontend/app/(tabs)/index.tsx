@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
 
   apiStatusFloating: {
     position: 'absolute',
-    top: 152, // Ajustado ligeiramente para baixo para não sobrepor o container de teste
+    top: 122,
     width: 38,
     height: 38,
     borderRadius: 19,
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   },
   notificationStatusBubble: {
     position: 'absolute',
-    top: 212,
+    top: 272,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1e293b',
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
   },
   handSelectorBubble: {
     position: 'absolute',
-    top: 272,
+    top: 318,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1e293b',
