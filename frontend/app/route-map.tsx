@@ -1,6 +1,11 @@
 import React from 'react';
 import RouteMapScreen from '@/components/RouteMapScreen';
+import BaseScreen from '@/components/BaseScreen';
 
 export default function RouteMapPage() {
-  return <RouteMapScreen />;
+  return (
+    <BaseScreen>
+      <RouteMapScreen />
+    </BaseScreen>
+  );
 }

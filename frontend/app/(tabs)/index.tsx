@@ -5,13 +5,12 @@ import {
   Text,
   Alert,
   Platform,
-  TouchableOpacity,
-  Image
+  TouchableOpacity
 } from 'react-native';
 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+
 import MapScreen, { MapScreenRef } from '@/components/MapScreen';
 import LocationReviewButton from '@/components/LocationReviewButton';
 import ReviewModal from '@/components/ReviewModal';
@@ -28,10 +27,10 @@ import { alertApi, AlertPayload } from '@/services/alertApi';
 import * as Notifications from 'expo-notifications';
 import { useHandedness } from '@/context/HandednessContext';
 import Sidebar from '@/components/Sidebar';
+import BaseScreen from '@/components/BaseScreen';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
 
   const {
     latitude: userLat,
@@ -59,7 +58,6 @@ export default function HomeScreen() {
   const [tipBannerVisible, setTipBannerVisible] = useState(false);
 
   const mapRef = useRef<MapScreenRef>(null);
-  const routeIcon = require('../../assets/images/route.png');
 
   useEffect(() => {
     console.log('[HomeScreen] Inicializando serviços de rastreamento...');
@@ -255,7 +253,8 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <BaseScreen>
+      <SafeAreaView style={styles.container} edges={['top']}>
       {/* Main Map Area */}
       <View style={styles.mapContainer}>
         <MapScreen
@@ -402,31 +401,6 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Barra de Navegação Inferior Estética */}
-      <View style={styles.bottomTabBar}>
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
-          <Ionicons name="map" size={15} color="#2dd4bf" />
-          <Text style={[styles.tabText, styles.tabTextActive]}>Mapa</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.tabItem}
-          activeOpacity={0.7}
-          onPress={() => router.push('/route-search')}
-        >
-          <Image
-            source={routeIcon}
-            style={styles.tabIconImage}
-            resizeMode="contain"
-          />
-          <Text style={styles.tabText}>Rotas</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
-          <Ionicons name="person" size={15} color="#94a3b8" />
-          <Text style={styles.tabText}>Perfil</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* Modais de Avaliação */}
       {selectedPoint ? (
@@ -479,6 +453,7 @@ export default function HomeScreen() {
         defaultLegendExpanded={sidebarLegendExpanded}
       />
     </SafeAreaView>
+    </BaseScreen>
   );
 }
 
@@ -592,35 +567,5 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',
-  },
-  bottomTabBar: {
-    backgroundColor: '#1e293b',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingTop: 5,
-    paddingBottom: Platform.OS === 'web' ? 0 : 30,
-    borderTopWidth: 0.5,
-    borderColor: '#334155',
-    zIndex: 100,
-  },
-  tabItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingVertical: 4,
-  },
-  tabIconImage: {
-    width: 15,
-    height: 15,
-    tintColor: '#94a3b8',
-  },
-  tabText: {
-    color: '#64748b',
-    fontSize: 10,
-    fontWeight: '400',
-  },
-  tabTextActive: {
-    color: '#2dd4bf',
   },
 });
