@@ -41,11 +41,14 @@ class InMemoryOccurrenceRepository:
             self._next_comment_id = 1
             self._seed_data()
 
-    def get_occurrence(self, occurrence_id: Union[int, str]) -> Optional[dict]:
+    def _normalize_id(self, occurrence_id: Union[int, str]) -> Union[int, str]:
         try:
-            occurrence_id = int(occurrence_id)
+            return int(occurrence_id)
         except (ValueError, TypeError):
-            pass
+            return occurrence_id
+
+    def get_occurrence(self, occurrence_id: Union[int, str]) -> Optional[dict]:
+        occurrence_id = self._normalize_id(occurrence_id)
         with self._lock:
             if occurrence_id not in self._occurrences:
                 # Tenta buscar a ocorrência nas avaliações salvas no review_controller
@@ -68,20 +71,14 @@ class InMemoryOccurrenceRepository:
             return self._occurrences.get(occurrence_id)
 
     def get_comments(self, occurrence_id: Union[int, str]) -> Optional[List[dict]]:
-        try:
-            occurrence_id = int(occurrence_id)
-        except (ValueError, TypeError):
-            pass
+        occurrence_id = self._normalize_id(occurrence_id)
         with self._lock:
             if not self.get_occurrence(occurrence_id):
                 return None
             return list(self._comments.get(occurrence_id, []))
 
     def add_comment(self, occurrence_id: Union[int, str], content: str) -> Optional[dict]:
-        try:
-            occurrence_id = int(occurrence_id)
-        except (ValueError, TypeError):
-            pass
+        occurrence_id = self._normalize_id(occurrence_id)
         with self._lock:
             if not self.get_occurrence(occurrence_id):
                 return None
@@ -100,10 +97,7 @@ class InMemoryOccurrenceRepository:
             return new_comment
 
     def add_validation(self, occurrence_id: Union[int, str], validation_type: str) -> Optional[dict]:
-        try:
-            occurrence_id = int(occurrence_id)
-        except (ValueError, TypeError):
-            pass
+        occurrence_id = self._normalize_id(occurrence_id)
         with self._lock:
             occurrence = self.get_occurrence(occurrence_id)
             if not occurrence:
