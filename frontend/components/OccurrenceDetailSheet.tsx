@@ -15,7 +15,7 @@ const COLORS = {
 };
 
 interface OccurrenceDetailSheetProps {
-  occurrenceId: number;
+  occurrenceId: string;
   onClose: () => void;
 }
 

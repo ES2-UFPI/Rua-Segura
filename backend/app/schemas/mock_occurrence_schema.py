@@ -1,9 +1,9 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Union
 
 class MockOccurrenceResponse(BaseModel):
-    id: int = Field(..., description="ID da ocorrência")
+    id: Union[int, str] = Field(..., description="ID da ocorrência")
     category: str = Field(..., description="Categoria da ocorrência")
     description: str = Field(..., description="Descrição detalhada da ocorrência")
     locationDescription: str = Field(..., description="Descrição da localização da ocorrência")

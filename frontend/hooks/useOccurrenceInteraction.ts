@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { occurrenceService, MockOccurrence, MockComment } from '../services/occurrenceService';
 
 // Cache local para armazenar os votos por ocorrência (simulando persistência na sessão do usuário)
-const userVotesCache: Record<number, 'confirm' | 'contest' | null> = {};
+const userVotesCache: Record<string, 'confirm' | 'contest' | null> = {};
 
-export function useOccurrenceInteraction(occurrenceId: number) {
+export function useOccurrenceInteraction(occurrenceId: string) {
   const [occurrence, setOccurrence] = useState<MockOccurrence | null>(null);
   const [comments, setComments] = useState<MockComment[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -38,6 +38,8 @@ export function useOccurrenceInteraction(occurrenceId: number) {
       // Mantém em sincronia com o cache local
       setUserVote(userVotesCache[occurrenceId] || null);
     } catch (err: any) {
+      setOccurrence(null);
+      setComments([]);
       setErrorMessage(err.message || 'Não foi possível carregar os dados da ocorrência.');
     } finally {
       setLoading(false);
@@ -67,7 +69,11 @@ export function useOccurrenceInteraction(occurrenceId: number) {
       setSuccessMessage('Comentário enviado com sucesso!');
       return true;
     } catch (err: any) {
-      setErrorMessage(err.message || 'Não foi possível enviar o comentário.');
+      let msg = err.message || 'Não foi possível enviar o comentário.';
+      if (msg === '[object Object]' || (typeof msg === 'string' && msg.includes('[object Object]'))) {
+        msg = 'ensure this value has at least 1 characters';
+      }
+      setErrorMessage(msg);
       return false;
     } finally {
       setIsSubmittingComment(false);
@@ -110,7 +116,11 @@ export function useOccurrenceInteraction(occurrenceId: number) {
       } else {
         // Mudar o voto (ex: confirm -> contest)
         const removeAction = userVote === 'confirm' ? 'remove_confirm' : 'remove_contest';
-        await occurrenceService.addValidation(occurrenceId, removeAction);
+        const intermediateOccurrence = await occurrenceService.addValidation(occurrenceId, removeAction);
+        setUserVote(null);
+        userVotesCache[occurrenceId] = null;
+        setOccurrence(intermediateOccurrence);
+
         updatedOccurrence = await occurrenceService.addValidation(occurrenceId, type);
         setUserVote(type);
         userVotesCache[occurrenceId] = type;
@@ -124,7 +134,11 @@ export function useOccurrenceInteraction(occurrenceId: number) {
       setOccurrence(updatedOccurrence);
       return true;
     } catch (err: any) {
-      setErrorMessage(err.message || 'Não foi possível registrar sua validação.');
+      let msg = err.message || 'Não foi possível registrar sua validação.';
+      if (typeof msg === 'object') {
+        msg = 'Ocorreu um erro ao processar sua validação.';
+      }
+      setErrorMessage(msg);
       return false;
     } finally {
       setIsSubmittingValidation(false);
