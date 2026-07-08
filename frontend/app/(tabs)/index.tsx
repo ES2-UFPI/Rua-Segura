@@ -18,6 +18,7 @@ import ReviewModal from '@/components/ReviewModal';
 import ConfirmReviewModal from '@/components/ConfirmReviewModal';
 import RiskIndicator from '@/components/RiskIndicator';
 import EmergencyButton from '@/components/EmergencyButton';
+import EmergencyModal from '@/components/EmergencyModal';
 import { OccurrenceDetailSheet } from '@/components/OccurrenceDetailSheet';
 import { reviewApi, LocationReviewResponse, RiskResponse } from '@/services/api';
 import { useLocation } from '@/hooks/useLocation';
@@ -50,6 +51,7 @@ export default function HomeScreen() {
   const [lastAlertId, setLastAlertId] = useState<string | null>(null);
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [emergencyModalVisible, setEmergencyModalVisible] = useState(false);
   const routeIcon = require('../../assets/images/route.png');
 
   useEffect(() => {
@@ -270,7 +272,7 @@ export default function HomeScreen() {
   };
 
   const handleEmergencyPress = () => {
-    Alert.alert("Emergência", "Botão de emergência acionado! (Ação apenas estética nesta sprint).");
+    setEmergencyModalVisible(true);
   };
 
   const dynamicSideStyle = isRightHanded ? { right: 16 } : { left: 16 };
@@ -452,6 +454,11 @@ export default function HomeScreen() {
           dynamicSideStyle,
           { bottom: 200 + insets.bottom, zIndex: 90 }
         ]}
+      />
+
+      <EmergencyModal
+        visible={emergencyModalVisible}
+        onClose={() => setEmergencyModalVisible(false)}
       />
 
       {activeReviewId !== null && (
