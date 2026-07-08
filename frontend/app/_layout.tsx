@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LogBox } from 'react-native';
+import { HandednessProvider } from '@/context/HandednessContext';
 
 // Ignore expo-notifications warning in Expo Go for SDK 53
 LogBox.ignoreLogs([
@@ -10,11 +11,13 @@ LogBox.ignoreLogs([
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false, // Esconde a barra nativa do topo
-        }}
-      />
+      <HandednessProvider>
+        <Stack
+          screenOptions={{
+            headerShown: false, // Esconde a barra nativa do topo
+          }}
+        />
+      </HandednessProvider>
     </SafeAreaProvider>
   );
 }

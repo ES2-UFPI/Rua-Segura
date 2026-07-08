@@ -16,19 +16,19 @@ const alertVisualConfig: Record<
     color: '#036D9A',
     icon: 'shield-checkmark-outline',
     title: 'Zona de Baixo Risco',
-    message: 'Nenhuma criticidade reportada proxima.',
+    message: 'Nenhuma ocorrência reportada proxima.',
   },
   AMARELO: {
     color: '#FDEA6F',
     icon: 'warning-outline',
     title: 'Zona de Atencao',
-    message: 'Ocorrencias moderadas detectadas por perto.',
+    message: 'Ocorrências moderadas detectadas por perto.',
   },
   VERMELHO: {
     color: '#CF0000',
     icon: 'alert-circle-outline',
     title: 'Zona Critica',
-    message: 'Elevada taxa de severidade e incidentes.',
+    message: 'Elevada taxa de ocorrências detectadas.',
   },
 };
 

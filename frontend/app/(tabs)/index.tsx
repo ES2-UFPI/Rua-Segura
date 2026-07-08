@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -12,7 +12,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import MapScreen from '@/components/MapScreen';
+import MapScreen, { MapScreenRef } from '@/components/MapScreen';
 import LocationReviewButton from '@/components/LocationReviewButton';
 import ReviewModal from '@/components/ReviewModal';
 import ConfirmReviewModal from '@/components/ConfirmReviewModal';
@@ -26,6 +26,8 @@ import { NotificationFacade } from '@/services/notifications/NotificationFacade'
 import AlertScreen from '@/components/alerts/AlertScreen';
 import { alertApi, AlertPayload } from '@/services/alertApi';
 import * as Notifications from 'expo-notifications';
+import { useHandedness } from '@/context/HandednessContext';
+import Sidebar from '@/components/Sidebar';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -43,15 +45,20 @@ export default function HomeScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [pendingReview, setPendingReview] = useState<{ category: string; description: string } | null>(null);
-  const [loading, setLoading] = useState(true);
   const [backendStatus, setBackendStatus] = useState<'online' | 'offline'>('offline');
   const [areaRisk, setAreaRisk] = useState<RiskResponse>({ level: 'AZUL', score: 0, count: 0 });
   const [alerts, setAlerts] = useState<AlertPayload[]>([]);
-  const [isRightHanded, setIsRightHanded] = useState(true);
   const [lastAlertId, setLastAlertId] = useState<string | null>(null);
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [emergencyModalVisible, setEmergencyModalVisible] = useState(false);
+
+  // Ergonomics & Sidebar States
+  const { isRightHanded } = useHandedness();
+  const [sidebarVisible, setSidebarVisible] = useState(false);
+  const [sidebarLegendExpanded, setSidebarLegendExpanded] = useState(false);
+  const [tipBannerVisible, setTipBannerVisible] = useState(false);
+
+  const mapRef = useRef<MapScreenRef>(null);
   const routeIcon = require('../../assets/images/route.png');
 
   useEffect(() => {
@@ -72,7 +79,6 @@ export default function HomeScreen() {
           enabled = false;
         }
       }
-      setNotificationsEnabled(enabled);
       if (enabled) {
         void NotificationFacade.registrarTokenNoBackend();
       }
@@ -90,40 +96,8 @@ export default function HomeScreen() {
     };
   }, []);
 
-  const handleToggleNotifications = async () => {
-    if (notificationsEnabled) {
-      if (Platform.OS === 'web') {
-        alert('Para desativar as notificações, altere as permissões do seu navegador.');
-      } else {
-        Alert.alert(
-          'Desativar Alertas',
-          'Para desativar as notificações, por favor gerencie as permissões do aplicativo nas configurações do seu celular.'
-        );
-      }
-      return;
-    }
-
-    const granted = await NotificationFacade.solicitarPermissao();
-    setNotificationsEnabled(granted);
-    if (granted) {
-      if (Platform.OS === 'web') {
-        alert('Notificações ativadas com sucesso!');
-      } else {
-        Alert.alert('Sucesso', 'Notificações de risco via Firebase ativadas com sucesso!');
-      }
-      void NotificationFacade.registrarTokenNoBackend();
-    } else {
-      if (Platform.OS === 'web') {
-        alert('Permissão de notificações negada pelo navegador.');
-      } else {
-        Alert.alert('Erro', 'Permissão de notificações negada pelo dispositivo.');
-      }
-    }
-  };
-
   const loadReviews = async () => {
     try {
-      setLoading(true);
       const data = await reviewApi.getReviews();
       setReviews(data);
       setBackendStatus('online');
@@ -142,8 +116,6 @@ export default function HomeScreen() {
           },
         ]);
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -275,13 +247,19 @@ export default function HomeScreen() {
     setEmergencyModalVisible(true);
   };
 
-  const dynamicSideStyle = isRightHanded ? { right: 16 } : { left: 16 };
+  const showTipBanner = () => {
+    setTipBannerVisible(true);
+    setTimeout(() => {
+      setTipBannerVisible(false);
+    }, 5000);
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Main Map Area */}
       <View style={styles.mapContainer}>
         <MapScreen
+          ref={mapRef}
           reviews={reviews}
           selectedPoint={selectedPoint}
           onMapSelectPoint={handleMapSelectPoint}
@@ -295,71 +273,101 @@ export default function HomeScreen() {
           }}
         />
 
+        {/* Top Header overlaying the map */}
+        <View style={styles.header}>
+          {isRightHanded ? (
+            <>
+              {/* Left Slot: Tip Button */}
+              <TouchableOpacity style={styles.headerIconBtn} onPress={showTipBanner} activeOpacity={0.7}>
+                <Ionicons name="help-circle" size={22} color="#fb7e44" />
+              </TouchableOpacity>
 
-        {/* Botão flutuante indicativo do status da API no topo do stack lateral */}
+              {/* Center Slot: Centered Risk Indicator Pill */}
+              <View style={styles.headerCenter}>
+                <RiskIndicator
+                  level={areaRisk.level}
+                  score={areaRisk.score}
+                  count={areaRisk.count}
+                  onOpenLegend={() => {
+                    setSidebarLegendExpanded(true);
+                    setSidebarVisible(true);
+                  }}
+                />
+              </View>
+
+              {/* Right Slot: Sidebar Toggle Button */}
+              <TouchableOpacity style={styles.headerIconBtn} onPress={() => setSidebarVisible(true)} activeOpacity={0.7}>
+                <Ionicons name="menu" size={22} color="#2dd4bf" />
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              {/* Left Slot: Sidebar Toggle Button */}
+              <TouchableOpacity style={styles.headerIconBtn} onPress={() => setSidebarVisible(true)} activeOpacity={0.7}>
+                <Ionicons name="menu" size={22} color="#2dd4bf" />
+              </TouchableOpacity>
+
+              {/* Center Slot: Centered Risk Indicator Pill */}
+              <View style={styles.headerCenter}>
+                <RiskIndicator
+                  level={areaRisk.level}
+                  score={areaRisk.score}
+                  count={areaRisk.count}
+                  onOpenLegend={() => {
+                    setSidebarLegendExpanded(true);
+                    setSidebarVisible(true);
+                  }}
+                />
+              </View>
+
+              {/* Right Slot: Tip Button */}
+              <TouchableOpacity style={styles.headerIconBtn} onPress={showTipBanner} activeOpacity={0.7}>
+                <Ionicons name="help-circle" size={22} color="#fb7e44" />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+
+        {/* Temporary Tip Banner */}
+        {tipBannerVisible && (
+          <View style={styles.tipBanner}>
+            <Ionicons name="information-circle-outline" size={18} color="#ffffff" />
+            <Text style={styles.tipBannerText}>
+              Dica: Dê um toque longo em qualquer ponto do mapa para selecionar a localização do reporte.
+            </Text>
+            <TouchableOpacity onPress={() => setTipBannerVisible(false)}>
+              <Ionicons name="close" size={18} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Botão de Recentralização (Tamanho Médio - 48x48px) */}
         <TouchableOpacity
           style={[
-            styles.apiStatusFloating,
-            isRightHanded ? { right: 12 } : { left: 12 }
+            styles.recenterButtonBottom,
+            isRightHanded ? { left: 16 } : { right: 16 },
+            { bottom: 70 + insets.bottom }
           ]}
-          onPress={() => void loadReviews()}
+          onPress={() => mapRef.current?.recenter()}
           activeOpacity={0.8}
-          accessibilityLabel={`Status da API: ${backendStatus}. Clique para recarregar.`}
+          accessibilityLabel="Centralizar na minha localização"
         >
-          <View
-            style={[
-              styles.statusDotInner,
-              { backgroundColor: backendStatus === 'online' ? '#10b981' : '#ef4444' },
-            ]}
-          />
+          <Ionicons name="locate" size={22} color="#2dd4bf" />
         </TouchableOpacity>
 
-        <RiskIndicator
-          level={areaRisk.level}
-          score={areaRisk.score}
-          isRightHanded={isRightHanded}
+        {/* Botão de Emergência (Fixo - Tamanho Grande: 95x95px) */}
+        <EmergencyButton
+          onPress={handleEmergencyPress}
+          style={[
+            isRightHanded ? { right: 16 } : { left: 16 },
+            { bottom: 80 + insets.bottom }
+          ]}
         />
 
-        {/* Balão de Notificações de Risco (Firebase) */}
-        <TouchableOpacity
-          style={[
-            styles.notificationStatusBubble,
-            isRightHanded ? { right: 12 } : { left: 12 }
-          ]}
-          onPress={handleToggleNotifications}
-          activeOpacity={0.8}
-          accessibilityLabel="Configuração de Notificações de Risco"
-        >
-          <Ionicons 
-            name={notificationsEnabled ? "notifications" : "notifications-off-outline"} 
-            size={14} 
-            color={notificationsEnabled ? "#2dd4bf" : "#64748b"} 
-          />
-          <Text style={styles.handSelectorText}>
-            {notificationsEnabled ? 'Alertas Ativos' : 'Alertas Inativos'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Balão de Controle do Modo Destro/Canhoto */}
-        <TouchableOpacity
-          style={[
-            styles.handSelectorBubble,
-            isRightHanded ? { right: 12 } : { left: 12 }
-          ]}
-          onPress={() => setIsRightHanded(!isRightHanded)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="hand-left-outline" size={14} color="#2dd4bf" />
-          <Text style={styles.handSelectorText}>
-            {isRightHanded ? 'Destro' : 'Canhoto'}
-          </Text>
-        </TouchableOpacity>
-
-
-        {/* CONTAINER DO BOTÃO */}
+        {/* CONTAINER DO BOTÃO DE REGISTRAR OCORRÊNCIA */}
         <View style={[
           styles.actionButtonsContainer,
-          { bottom: 8 + insets.bottom }
+          { bottom: 0 + insets.bottom }
         ]}>
           <View style={styles.smallButtonWrapper}>
             <LocationReviewButton
@@ -397,7 +405,7 @@ export default function HomeScreen() {
       {/* Barra de Navegação Inferior Estética */}
       <View style={styles.bottomTabBar}>
         <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
-          <Ionicons name="map" size={22} color="#2dd4bf" />
+          <Ionicons name="map" size={15} color="#2dd4bf" />
           <Text style={[styles.tabText, styles.tabTextActive]}>Mapa</Text>
         </TouchableOpacity>
 
@@ -411,12 +419,11 @@ export default function HomeScreen() {
             style={styles.tabIconImage}
             resizeMode="contain"
           />
-
           <Text style={styles.tabText}>Rotas</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
-          <Ionicons name="person" size={22} color="#94a3b8" />
+          <Ionicons name="person" size={15} color="#94a3b8" />
           <Text style={styles.tabText}>Perfil</Text>
         </TouchableOpacity>
       </View>
@@ -448,14 +455,6 @@ export default function HomeScreen() {
         }}
       />
 
-      <EmergencyButton
-        onPress={handleEmergencyPress}
-        style={[
-          dynamicSideStyle,
-          { bottom: 200 + insets.bottom, zIndex: 90 }
-        ]}
-      />
-
       <EmergencyModal
         visible={emergencyModalVisible}
         onClose={() => setEmergencyModalVisible(false)}
@@ -467,6 +466,18 @@ export default function HomeScreen() {
           onClose={() => setActiveReviewId(null)}
         />
       )}
+
+      {/* Sidebar Control Panel */}
+      <Sidebar
+        visible={sidebarVisible}
+        onClose={() => {
+          setSidebarVisible(false);
+          setSidebarLegendExpanded(false);
+        }}
+        backendStatus={backendStatus}
+        onReloadReviews={loadReviews}
+        defaultLegendExpanded={sidebarLegendExpanded}
+      />
     </SafeAreaView>
   );
 }
@@ -477,118 +488,89 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
   },
   header: {
-    height: Platform.OS === 'ios' ? 50 : 60,
-    backgroundColor: '#1e293b',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: Platform.OS === 'ios' ? 54 : 64,
+    backgroundColor: 'transparent',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderColor: '#334155',
+    borderBottomWidth: 0.5,
+    borderColor: 'transparent',
     zIndex: 100,
   },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { color: '#f8fafc', fontSize: 18, fontWeight: '800', letterSpacing: 0.5 },
-  statusBadge: {
+  headerIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1e293b',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 0.5,
+    borderColor: '#334155',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 6,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tipBanner: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 54 : 64,
+    left: 0,
+    right: 0,
+    backgroundColor: '#0f766e',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    zIndex: 999,
+    gap: 8,
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  statusText: {
-    color: '#94a3b8',
-    fontSize: 11,
+  tipBannerText: {
+    color: '#ffffff',
+    fontSize: 12,
     fontWeight: '600',
+    flex: 1,
   },
   mapContainer: {
     flex: 1,
     position: 'relative',
   },
-
-  apiStatusFloating: {
+  recenterButtonBottom: {
     position: 'absolute',
-    top: 122,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#1e293b',
-    borderWidth: 1.5,
+    borderWidth: 0.5,
     borderColor: '#334155',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1000,
-    elevation: 5,
+    zIndex: 99,
     shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
-  },
-  statusDotInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  notificationStatusBubble: {
-    position: 'absolute',
-    top: 272,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1e293b',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    zIndex: 1000,
-    elevation: 5,
-    gap: 4,
-  },
-  handSelectorBubble: {
-    position: 'absolute',
-    top: 318,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1e293b',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    zIndex: 1000,
-    elevation: 5,
-    gap: 4,
-  },
-  handSelectorText: {
-    color: '#f8fafc',
-    fontSize: 11,
-    fontWeight: '700',
+    elevation: 8,
   },
   actionButtonsContainer: {
     position: 'absolute',
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    zIndex: 99,
-    elevation: 8,
+    gap: 0,
+    zIndex: 0,
+    elevation: 0,
   },
   smallButtonWrapper: {
     transform: [{ scale: 0.85 }],
@@ -602,7 +584,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 4,
     backgroundColor: '#1f2937',
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: '#334155',
     elevation: 6,
   },
@@ -616,9 +598,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 14,
-    borderTopWidth: 1,
+    paddingTop: 5,
+    paddingBottom: Platform.OS === 'web' ? 0 : 30,
+    borderTopWidth: 0.5,
     borderColor: '#334155',
     zIndex: 100,
   },
@@ -629,15 +611,14 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tabIconImage: {
-    width: 22,
-    height: 22,
+    width: 15,
+    height: 15,
     tintColor: '#94a3b8',
   },
   tabText: {
     color: '#64748b',
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 4,
+    fontSize: 10,
+    fontWeight: '400',
   },
   tabTextActive: {
     color: '#2dd4bf',
