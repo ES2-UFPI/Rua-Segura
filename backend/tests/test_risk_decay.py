@@ -7,6 +7,9 @@ def test_heuristic_strategy_spatial_decay():
     """Valida se ocorrências mais distantes têm seu risco atenuado corretamente"""
     strategy = HeuristicRiskStrategy()
     
+    # Adicionando um timedelta de +5 minutos no futuro para anular variação de microssegundos no teste
+    future_time = datetime.now(timezone.utc) + timedelta(minutes=5)
+    
     # 1. Distância = 0 metros (Sem atenuação)
     # Assalto tem peso base 3. Peso efetivo = 3 * 1.0 = 3
     review_on_route = LocationReview(
@@ -15,7 +18,7 @@ def test_heuristic_strategy_spatial_decay():
         description="Assalto na rota",
         latitude=-5.0870,
         longitude=-42.8080,
-        timestamp=datetime.now(timezone.utc)
+        timestamp=future_time
     )
     review_on_route.distance_from_route = 0.0
     
@@ -30,7 +33,7 @@ def test_heuristic_strategy_spatial_decay():
         description="Assalto a 50m",
         latitude=-5.0870,
         longitude=-42.8080,
-        timestamp=datetime.now(timezone.utc)
+        timestamp=future_time
     )
     review_mid_route.distance_from_route = 50.0
     
@@ -45,7 +48,7 @@ def test_heuristic_strategy_spatial_decay():
         description="Assalto a 90m",
         latitude=-5.0870,
         longitude=-42.8080,
-        timestamp=datetime.now(timezone.utc)
+        timestamp=future_time
     )
     review_far_route.distance_from_route = 90.0
     
@@ -58,14 +61,14 @@ def test_heuristic_strategy_temporal_decay():
     strategy = HeuristicRiskStrategy()
     
     # 1. Registro recente (0 dias) -> Sem atenuação temporal
-    # Assalto tem peso base 3. Peso efetivo = 3
+    # Definido no futuro para anular variação de microssegundos
     review_recent = LocationReview(
         id="1",
         category="Assalto",
         description="Assalto recente",
         latitude=-5.0870,
         longitude=-42.8080,
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(timezone.utc) + timedelta(minutes=5)
     )
     review_recent.distance_from_route = 0.0
     
