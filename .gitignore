@@ -6,6 +6,11 @@ backend/.mypy_cache/
 *.pyc
 .env
 
+# Firebase service account credentials
+backend/*firebase*.json
+backend/*.json
+
+
 # Node dependencies
 node_modules/
 

@@ -1,6 +1,7 @@
 import { Vibration } from 'react-native';
 import { NotificationFacade } from '../NotificationFacade';
 import { AlertPayload } from '@/services/alertApi';
+import * as Notifications from 'expo-notifications';
 
 jest.mock('react-native', () => {
   const rn = jest.requireActual('react-native');
@@ -10,6 +11,13 @@ jest.mock('react-native', () => {
   };
   return rn;
 });
+
+jest.mock('expo-notifications', () => ({
+  getPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+  requestPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+  scheduleNotificationAsync: jest.fn().mockResolvedValue('notification-id'),
+  setNotificationHandler: jest.fn(),
+}));
 
 describe('Teste Unitário - NotificationFacade (Sistema Sensorial)', () => {
   let mockSetAlertsState: jest.Mock;
@@ -44,5 +52,11 @@ describe('Teste Unitário - NotificationFacade (Sistema Sensorial)', () => {
     await NotificationFacade.processarAlertaDeRisco(alertaAtencao, mockSetAlertsState);
 
     expect(Vibration.vibrate).toHaveBeenCalledWith(300);
+  });
+
+  it('deve solicitar permissao de notificacoes e retornar true se concedido', async () => {
+    const concedido = await NotificationFacade.solicitarPermissao();
+    expect(concedido).toBe(true);
+    expect(Notifications.getPermissionsAsync).toHaveBeenCalled();
   });
 });

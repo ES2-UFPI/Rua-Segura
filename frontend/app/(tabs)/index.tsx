@@ -24,6 +24,7 @@ import { useLocation } from '@/hooks/useLocation';
 import { NotificationFacade } from '@/services/notifications/NotificationFacade';
 import AlertScreen from '@/components/alerts/AlertScreen';
 import { alertApi, AlertPayload } from '@/services/alertApi';
+import * as Notifications from 'expo-notifications';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -48,12 +49,75 @@ export default function HomeScreen() {
   const [isRightHanded, setIsRightHanded] = useState(true);
   const [lastAlertId, setLastAlertId] = useState<string | null>(null);
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const routeIcon = require('../../assets/images/route.png');
 
   useEffect(() => {
     console.log('[HomeScreen] Inicializando serviços de rastreamento...');
     void startBackgroundLocation();
   }, []);
+
+  useEffect(() => {
+    const checkNotificationPermission = async () => {
+      let enabled = false;
+      if (Platform.OS === 'web') {
+        enabled = 'Notification' in window && window.Notification.permission === 'granted';
+      } else {
+        try {
+          const { status } = await Notifications.getPermissionsAsync();
+          enabled = status === 'granted';
+        } catch {
+          enabled = false;
+        }
+      }
+      setNotificationsEnabled(enabled);
+      if (enabled) {
+        void NotificationFacade.registrarTokenNoBackend();
+      }
+    };
+    void checkNotificationPermission();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = NotificationFacade.configurarListenersFirebase((alerta) => {
+      console.log('[HomeScreen] Alerta push recebido:', alerta);
+      void NotificationFacade.processarAlertaDeRisco(alerta, setAlerts);
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
+  const handleToggleNotifications = async () => {
+    if (notificationsEnabled) {
+      if (Platform.OS === 'web') {
+        alert('Para desativar as notificações, altere as permissões do seu navegador.');
+      } else {
+        Alert.alert(
+          'Desativar Alertas',
+          'Para desativar as notificações, por favor gerencie as permissões do aplicativo nas configurações do seu celular.'
+        );
+      }
+      return;
+    }
+
+    const granted = await NotificationFacade.solicitarPermissao();
+    setNotificationsEnabled(granted);
+    if (granted) {
+      if (Platform.OS === 'web') {
+        alert('Notificações ativadas com sucesso!');
+      } else {
+        Alert.alert('Sucesso', 'Notificações de risco via Firebase ativadas com sucesso!');
+      }
+      void NotificationFacade.registrarTokenNoBackend();
+    } else {
+      if (Platform.OS === 'web') {
+        alert('Permissão de notificações negada pelo navegador.');
+      } else {
+        Alert.alert('Erro', 'Permissão de notificações negada pelo dispositivo.');
+      }
+    }
+  };
 
   const loadReviews = async () => {
     try {
@@ -254,6 +318,26 @@ export default function HomeScreen() {
           isRightHanded={isRightHanded}
         />
 
+        {/* Balão de Notificações de Risco (Firebase) */}
+        <TouchableOpacity
+          style={[
+            styles.notificationStatusBubble,
+            isRightHanded ? { right: 12 } : { left: 12 }
+          ]}
+          onPress={handleToggleNotifications}
+          activeOpacity={0.8}
+          accessibilityLabel="Configuração de Notificações de Risco"
+        >
+          <Ionicons 
+            name={notificationsEnabled ? "notifications" : "notifications-off-outline"} 
+            size={14} 
+            color={notificationsEnabled ? "#2dd4bf" : "#64748b"} 
+          />
+          <Text style={styles.handSelectorText}>
+            {notificationsEnabled ? 'Alertas Ativos' : 'Alertas Inativos'}
+          </Text>
+        </TouchableOpacity>
+
         {/* Balão de Controle do Modo Destro/Canhoto */}
         <TouchableOpacity
           style={[
@@ -426,7 +510,7 @@ const styles = StyleSheet.create({
 
   apiStatusFloating: {
     position: 'absolute',
-    top: 152, // Ajustado ligeiramente para baixo para não sobrepor o container de teste
+    top: 122,
     width: 38,
     height: 38,
     borderRadius: 19,
@@ -447,9 +531,28 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
   },
-  handSelectorBubble: {
+  notificationStatusBubble: {
     position: 'absolute',
     top: 272,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    zIndex: 1000,
+    elevation: 5,
+    gap: 4,
+  },
+  handSelectorBubble: {
+    position: 'absolute',
+    top: 318,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1e293b',
