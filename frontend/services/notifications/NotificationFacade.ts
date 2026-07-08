@@ -3,12 +3,34 @@ import * as Notifications from 'expo-notifications';
 import { AlertPayload } from '@/services/alertApi';
 import { API_URL } from '@/config/api';
 
+const isExpoGoRuntime = (): boolean => {
+  try {
+    const Constants = require('expo-constants').default;
+    return Constants?.appOwnership === 'expo';
+  } catch {
+    return false;
+  }
+};
+
+const isFirebaseMessagingAvailable = (): boolean => {
+  if (Platform.OS === 'web' || isExpoGoRuntime()) {
+    return false;
+  }
+
+  try {
+    require('@react-native-firebase/messaging');
+    require('@react-native-firebase/app');
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 // Configura o handler de exibição das notificações quando o app está em primeiro plano
 if (Platform.OS !== 'web' && Notifications && Notifications.setNotificationHandler) {
   try {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
-        shouldShowAlert: true,
         shouldShowBanner: true,
         shouldShowList: true,
         shouldSetBadge: true,
@@ -36,6 +58,11 @@ export const NotificationFacade = {
     }
 
     try {
+      if (isExpoGoRuntime()) {
+        console.log('[NotificationFacade] Ambiente Expo Go detectado. Pulando integração remota de notificações.');
+        return false;
+      }
+
       if (!Notifications || !Notifications.getPermissionsAsync || !Notifications.requestPermissionsAsync) {
         console.log('[NotificationFacade] expo-notifications APIs não disponíveis.');
         return false;
@@ -66,21 +93,12 @@ export const NotificationFacade = {
     }
 
     try {
-      let messaging;
-      try {
-        messaging = require('@react-native-firebase/messaging').default;
-      } catch (err) {
-        console.log('[NotificationFacade] Módulo @react-native-firebase/messaging não disponível.');
+      if (!isFirebaseMessagingAvailable()) {
+        console.log('[NotificationFacade] Integração Firebase indisponível neste ambiente. Pulando registro remoto.');
         return;
       }
 
-      // Garante que o Firebase App está inicializado antes de pedir o token
-      try {
-        require('@react-native-firebase/app');
-      } catch (err) {
-        console.log('[NotificationFacade] Módulo @react-native-firebase/app não disponível.');
-        return;
-      }
+      const messaging = require('@react-native-firebase/messaging').default;
 
       if (!Notifications || !Notifications.getPermissionsAsync) {
         return;
@@ -127,12 +145,11 @@ export const NotificationFacade = {
     if (Platform.OS === 'web') return () => {};
 
     try {
-      let messaging;
-      try {
-        messaging = require('@react-native-firebase/messaging').default;
-      } catch {
+      if (!isFirebaseMessagingAvailable()) {
         return () => {};
       }
+
+      const messaging = require('@react-native-firebase/messaging').default;
 
       // Handler para quando o app está em primeiro plano
       const unsubscribeForeground = messaging().onMessage(async (remoteMessage: any) => {

@@ -19,6 +19,12 @@ jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
 }));
 
+jest.mock('expo-constants', () => ({
+  default: {
+    appOwnership: 'expo',
+  },
+}));
+
 describe('Teste Unitário - NotificationFacade (Sistema Sensorial)', () => {
   let mockSetAlertsState: jest.Mock;
 
@@ -54,9 +60,10 @@ describe('Teste Unitário - NotificationFacade (Sistema Sensorial)', () => {
     expect(Vibration.vibrate).toHaveBeenCalledWith(300);
   });
 
-  it('deve solicitar permissao de notificacoes e retornar true se concedido', async () => {
+  it('deve ignorar a integração remota quando estiver em Expo Go', async () => {
     const concedido = await NotificationFacade.solicitarPermissao();
-    expect(concedido).toBe(true);
-    expect(Notifications.getPermissionsAsync).toHaveBeenCalled();
+    expect(concedido).toBe(false);
+    expect(Notifications.getPermissionsAsync).not.toHaveBeenCalled();
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
   });
 });
