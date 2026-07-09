@@ -433,6 +433,8 @@ export default function HomeScreen() {
       <EmergencyModal
         visible={emergencyModalVisible}
         onClose={() => setEmergencyModalVisible(false)}
+        userLatitude={userLat}
+        userLongitude={userLng}
       />
 
       {activeReviewId !== null && (

@@ -1,15 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface EmergencyModalProps {
   visible: boolean;
   onClose: () => void;
+  userLatitude: number | null;
+  userLongitude: number | null;
 }
 
 type StepType = 'confirm' | 'triggered' | 'cancelled';
 
-export default function EmergencyModal({ visible, onClose }: EmergencyModalProps) {
+export default function EmergencyModal({
+  visible,
+  onClose,
+  userLatitude,
+  userLongitude,
+}: EmergencyModalProps) {
   const [step, setStep] = useState<StepType>('confirm');
   const [timeLeft, setTimeLeft] = useState(10);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -56,6 +63,21 @@ export default function EmergencyModal({ visible, onClose }: EmergencyModalProps
   const handleConfirm = () => {
     setStep('triggered');
     startAutoCloseTimer();
+
+    const phoneNumber = '(86)98136-5462';
+    const formattedTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const locationStr = userLatitude !== null && userLongitude !== null
+      ? `Lat: ${userLatitude.toFixed(5)}, Lng: ${userLongitude.toFixed(5)}`
+      : 'Não disponível';
+    const mapsUrl = userLatitude !== null && userLongitude !== null
+      ? `\nMapa: https://www.google.com/maps/search/?api=1&query=${userLatitude},${userLongitude}`
+      : '';
+    const message = `EMERGÊNCIA! Eu, Ana Silva, estou em perigo.\nLocalização: ${locationStr}${mapsUrl}\nHora: ${formattedTime}`;
+
+    const url = `sms:${phoneNumber}${Platform.OS === 'ios' ? '&' : '?'}body=${encodeURIComponent(message)}`;
+    Linking.openURL(url).catch((err) => {
+      console.error('Falha ao acionar contato de emergência via SMS:', err);
+    });
   };
 
   const handleCancel = () => {
@@ -104,7 +126,7 @@ export default function EmergencyModal({ visible, onClose }: EmergencyModalProps
               </View>
               <Text style={styles.title}>Emergência Acionada</Text>
               <Text style={styles.description}>
-                Botão de emergência acionado!{"\n"}(Ação apenas estética nesta sprint).
+                Mensagem de emergência enviada para (86)98136-5462!
               </Text>
               <Text style={styles.timerText}>Fechando em {timeLeft}s...</Text>
               <TouchableOpacity style={styles.buttonClose} onPress={handleManualClose} activeOpacity={0.8}>
