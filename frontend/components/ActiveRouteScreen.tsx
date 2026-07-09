@@ -29,6 +29,7 @@ type NavigationStep = {
   nextInstruction: string;
   distance: string;
   maneuver: NavigationManeuver;
+  routePointIndex?: number | null;
 };
 
 type ActiveRouteParams = {
@@ -64,6 +65,13 @@ const FALLBACK_DISTANCE = '2,4 km';
 const FALLBACK_RISK = 'Baixo';
 const ANDROID_NAV_FALLBACK_BOTTOM = 42;
 
+const STATIC_ROUTE_SUMMARY = {
+  estimatedTime: '8 min',
+  totalDistance: '2,4 km',
+  riskLevel: 'Baixo risco',
+  routeMessage: 'Rota segura no momento. Os dados deste card estão estáticos por enquanto.',
+};
+
 const MARKER_DOT_GREEN = require('../assets/images/marker-dot-green.png');
 const USER_LOCATION_MARKER = require('../assets/images/user-location.png');
 
@@ -98,7 +106,7 @@ const MOCK_ACTIVE_ROUTE = {
       distance: '120 m',
       maneuver: 'right' as NavigationManeuver,
     },
-  ],
+  ] as NavigationStep[],
 };
 
 let MapView: any = null;
@@ -128,22 +136,7 @@ function createMockRouteLine(
   origin: RouteCoordinates,
   destination: RouteCoordinates,
 ): RouteCoordinates[] {
-  return [
-    origin,
-    {
-      latitude: origin.latitude + 0.0012,
-      longitude: origin.longitude + 0.001,
-    },
-    {
-      latitude: origin.latitude + 0.002,
-      longitude: origin.longitude + 0.0024,
-    },
-    {
-      latitude: destination.latitude - 0.0008,
-      longitude: destination.longitude - 0.0006,
-    },
-    destination,
-  ];
+  return [origin, destination];
 }
 
 function isValidCoordinate(coord: RouteCoordinates) {
@@ -222,6 +215,7 @@ function parseStepsFromJson(value?: string): NavigationStep[] | null {
         const nextInstruction = String(item.nextInstruction ?? '').trim();
         const distance = String(item.distance ?? '').trim();
         const maneuver = String(item.maneuver ?? 'straight') as NavigationManeuver;
+        const routePointIndex = Number(item.routePointIndex);
 
         if (!instruction) return null;
 
@@ -233,6 +227,7 @@ function parseStepsFromJson(value?: string): NavigationStep[] | null {
           maneuver: ['straight', 'left', 'right', 'arrive'].includes(maneuver)
             ? maneuver
             : 'straight',
+          routePointIndex: Number.isFinite(routePointIndex) ? routePointIndex : null,
         };
       })
       .filter(Boolean) as NavigationStep[];
@@ -317,6 +312,7 @@ function EmptyNavigationState({ onBack }: { onBack: () => void }) {
 type ActiveRouteMapProps = {
   origin: RouteCoordinates;
   destination: RouteCoordinates;
+  currentLocation: RouteCoordinates;
   originName: string;
   destinationName: string;
   routeCoordinates: RouteCoordinates[];
@@ -326,6 +322,7 @@ type ActiveRouteMapProps = {
 function ActiveRouteMap({
   origin,
   destination,
+  currentLocation,
   originName,
   destinationName,
   routeCoordinates,
@@ -336,6 +333,7 @@ function ActiveRouteMap({
 
   const webMapRef = useRef<any>(null);
   const webMarkersRef = useRef<any[]>([]);
+  const webUserMarkerRef = useRef<any>(null);
   const webPolylineRef = useRef<any>(null);
   const nativeMapRef = useRef<any>(null);
 
@@ -456,33 +454,33 @@ function ActiveRouteMap({
         className: 'user-current-icon',
         html: `
           <div style="
-            width:52px;
-            height:52px;
-            border-radius:26px;
-            background:rgba(20,115,230,0.14);
+            width:48px;
+            height:48px;
+            border-radius:24px;
+            background:rgba(20,115,230,0.16);
             display:flex;
             align-items:center;
             justify-content:center;
           ">
             <div style="
-              width:42px;
-              height:42px;
-              border-radius:21px;
+              width:38px;
+              height:38px;
+              border-radius:19px;
               background:white;
               display:flex;
               align-items:center;
               justify-content:center;
               box-shadow:0 5px 12px rgba(0,0,0,0.25);
               color:#1473E6;
-              font-size:23px;
+              font-size:21px;
               font-weight:900;
             ">
               ➤
             </div>
           </div>
         `,
-        iconSize: [52, 52],
-        iconAnchor: [26, 26],
+        iconSize: [48, 48],
+        iconAnchor: [24, 24],
       });
 
       const originMarker = L.marker([origin.latitude, origin.longitude], {
@@ -501,11 +499,12 @@ function ActiveRouteMap({
         .bindPopup(`<b>Destino</b><br/>${destinationName}`);
 
       const userMarker = L.marker(
-        [MOCK_USER_POSITION.latitude, MOCK_USER_POSITION.longitude],
+        [currentLocation.latitude, currentLocation.longitude],
         {
           icon: userIcon,
         },
       ).addTo(map);
+      webUserMarkerRef.current = userMarker;
 
       webMarkersRef.current.push(originMarker, destinationMarker, userMarker);
 
@@ -549,6 +548,7 @@ function ActiveRouteMap({
     return () => {
       webMarkersRef.current.forEach((marker) => marker.remove());
       webMarkersRef.current = [];
+      webUserMarkerRef.current = null;
 
       if (webPolylineRef.current) {
         webPolylineRef.current.remove();
@@ -576,6 +576,15 @@ function ActiveRouteMap({
     mapInitialRegion.latitude,
     mapInitialRegion.longitude,
   ]);
+
+  useEffect(() => {
+    if (!isWeb || !webUserMarkerRef.current) return;
+
+    webUserMarkerRef.current.setLatLng([
+      currentLocation.latitude,
+      currentLocation.longitude,
+    ]);
+  }, [currentLocation.latitude, currentLocation.longitude, isWeb]);
 
   if (isWeb) {
     return (
@@ -639,8 +648,8 @@ function ActiveRouteMap({
       />
 
       <Marker
-        coordinate={MOCK_USER_POSITION}
-        title="Você está aqui"
+        coordinate={currentLocation}
+        title="Posicao simulada"
         image={USER_LOCATION_MARKER}
         anchor={{ x: 0.5, y: 0.5 }}
         centerOffset={{ x: 0, y: 0 }}
@@ -783,6 +792,7 @@ function BottomNavigationCard({
   estimatedTime,
   totalDistance,
   riskLevel,
+  routeMessage,
   bottomOffset,
   onExit,
   onRecenter,
@@ -791,6 +801,7 @@ function BottomNavigationCard({
   estimatedTime: string;
   totalDistance: string;
   riskLevel: string;
+  routeMessage: string;
   bottomOffset: number;
   onExit: () => void;
   onRecenter: () => void;
@@ -825,6 +836,10 @@ function BottomNavigationCard({
             </Text>
           </View>
         </View>
+
+        <Text style={styles.bottomRiskMessage} numberOfLines={2}>
+          {routeMessage}
+        </Text>
       </View>
 
       <View style={styles.bottomActionsRow}>
@@ -862,6 +877,7 @@ export default function ActiveRouteScreen() {
 
   const [recenterSignal, setRecenterSignal] = useState(0);
   const [isSecurityOpen, setIsSecurityOpen] = useState(false);
+  const [simulatedPointIndex, setSimulatedPointIndex] = useState(0);
 
   const {
     activeSession,
@@ -873,22 +889,19 @@ export default function ActiveRouteScreen() {
     startSharing,
     stopSharing,
     copyShareLink,
+    updateSharingLocation,
   } = useShareTrip();
 
   const originName = String(params.originName ?? '').trim();
   const destinationName = String(params.destinationName ?? '').trim();
 
-  const estimatedTime = String(
-    params.estimatedTime ?? MOCK_ACTIVE_ROUTE.estimatedTime,
-  ).trim();
+  const estimatedTime = STATIC_ROUTE_SUMMARY.estimatedTime;
 
-  const totalDistance = String(
-    params.totalDistance ?? MOCK_ACTIVE_ROUTE.totalDistance,
-  ).trim();
+  const totalDistance = STATIC_ROUTE_SUMMARY.totalDistance;
 
-  const riskLevel = String(
-    params.riskLevel ?? MOCK_ACTIVE_ROUTE.currentRisk,
-  ).trim();
+  const riskLevel = STATIC_ROUTE_SUMMARY.riskLevel;
+
+  const routeMessage = STATIC_ROUTE_SUMMARY.routeMessage;
 
   const origin: RouteCoordinates = {
     latitude: parseCoord(params.originLatitude, MOCK_USER_POSITION.latitude),
@@ -922,7 +935,51 @@ export default function ActiveRouteScreen() {
   }, [origin, destination, parsedRouteCoordinates]);
 
   const steps = parsedSteps ?? MOCK_ACTIVE_ROUTE.steps;
-  const currentStep = steps[MOCK_ACTIVE_ROUTE.currentStepIndex] ?? steps[0];
+  const currentLocation = routeCoordinates[
+    Math.min(simulatedPointIndex, routeCoordinates.length - 1)
+  ] ?? origin;
+  const hasArrived =
+    routeCoordinates.length > 1 && simulatedPointIndex >= routeCoordinates.length - 1;
+  const currentStepIndex = useMemo(() => {
+    if (!steps.length || routeCoordinates.length < 2) return 0;
+
+    const stepWithRoutePoint = steps
+      .map((step, index) => ({
+        index,
+        routePointIndex: Number(step.routePointIndex),
+      }))
+      .filter(({ routePointIndex }) => Number.isFinite(routePointIndex))
+      .sort((a, b) => a.routePointIndex - b.routePointIndex);
+
+    if (!stepWithRoutePoint.length) {
+      const estimatedIndex = Math.floor(
+        (simulatedPointIndex / Math.max(routeCoordinates.length - 1, 1)) * steps.length,
+      );
+
+      return Math.min(estimatedIndex, steps.length - 1);
+    }
+
+    let activeIndex = stepWithRoutePoint[0].index;
+
+    for (const step of stepWithRoutePoint) {
+      if (simulatedPointIndex <= step.routePointIndex) {
+        return step.index;
+      }
+
+      activeIndex = step.index;
+    }
+
+    return activeIndex;
+  }, [routeCoordinates.length, simulatedPointIndex, steps]);
+  const arrivalStep: NavigationStep = useMemo(() => ({
+    instruction: 'Você chegou ao seu destino',
+    streetName: destinationName,
+    nextInstruction: '',
+    distance: '0 m',
+    maneuver: 'arrive',
+    routePointIndex: routeCoordinates.length - 1,
+  }), [destinationName, routeCoordinates.length]);
+  const currentStep = hasArrived ? arrivalStep : steps[currentStepIndex] ?? steps[0];
 
   const hasRouteData = originName.length > 0 && destinationName.length > 0;
   const isCompactScreen = width < 370 || height < 700;
@@ -953,6 +1010,32 @@ export default function ActiveRouteScreen() {
     setRecenterSignal((current) => current + 1);
   }, []);
 
+  useEffect(() => {
+    setSimulatedPointIndex(0);
+  }, [params.routeCoordinatesJson]);
+
+  useEffect(() => {
+    if (routeCoordinates.length < 2) return undefined;
+
+    const interval = setInterval(() => {
+      setSimulatedPointIndex((current) => {
+        if (current >= routeCoordinates.length - 1) {
+          return current;
+        }
+
+        return current + 1;
+      });
+    }, 2200);
+
+    return () => clearInterval(interval);
+  }, [routeCoordinates.length]);
+
+  useEffect(() => {
+    if (!activeSession) return;
+
+    void updateSharingLocation(currentLocation);
+  }, [activeSession, currentLocation, updateSharingLocation]);
+
   if (!hasRouteData) {
     return <EmptyNavigationState onBack={() => router.back()} />;
   }
@@ -969,6 +1052,7 @@ export default function ActiveRouteScreen() {
         <ActiveRouteMap
           origin={origin}
           destination={destination}
+          currentLocation={currentLocation}
           originName={originName}
           destinationName={destinationName}
           routeCoordinates={routeCoordinates}
@@ -992,6 +1076,7 @@ export default function ActiveRouteScreen() {
           estimatedTime={estimatedTime}
           totalDistance={totalDistance}
           riskLevel={riskLevel}
+          routeMessage={routeMessage}
           bottomOffset={bottomCardOffset}
           onExit={() => router.back()}
           onRecenter={handleRecenter}
@@ -1005,7 +1090,7 @@ export default function ActiveRouteScreen() {
             isCopying={isCopying}
             errorMessage={errorMessage}
             successMessage={successMessage}
-            onStartSharing={() => startSharing(origin, destination)}
+            onStartSharing={() => startSharing(currentLocation, destination)}
             onStopSharing={stopSharing}
             onCopyLink={copyShareLink}
             onClose={() => setIsSecurityOpen(false)}
@@ -1290,6 +1375,14 @@ const styles = StyleSheet.create({
     color: COLORS.warning,
     fontSize: 15,
     fontWeight: '900',
+  },
+
+  bottomRiskMessage: {
+    marginTop: 6,
+    color: COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
   },
 
   riskBadge: {
