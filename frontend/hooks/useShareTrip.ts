@@ -12,7 +12,6 @@ type UseShareTripResult = {
   startSharing: (
     currentLocation: ShareCoordinate,
     destination: ShareCoordinate,
-    routeCoordinates?: ShareCoordinate[],
   ) => Promise<void>;
   stopSharing: () => Promise<void>;
   copyShareLink: () => Promise<void>;

@@ -129,7 +129,7 @@ function RouteSummaryCard({
           <Text style={styles.summaryDistance}>{distanceLabel} - {durationLabel}</Text>
         </View>
 
-        <View style={[styles.riskBadge, riskBadgeStyle]}>
+         <View style={[styles.riskBadge, riskBadgeStyle]}>
           <Text style={[styles.riskBadgeText, riskBadgeTextStyle]}>{riskLabel}</Text>
         </View>
       </View>
@@ -166,13 +166,6 @@ function RouteSummaryCard({
             {destinationName}
           </Text>
         </View>
-      </View>
-
-      <View style={styles.reasonBox}>
-        <Text style={styles.reasonTitle}>Seguranca da rota</Text>
-        <Text style={styles.reasonText} numberOfLines={2}>
-          {riskDescription}
-        </Text>
       </View>
 
       <TouchableOpacity
@@ -262,7 +255,7 @@ export default function RouteMapScreen() {
   const riskDescription = safeRoute
     ? formatRouteSafetyMessage(safeRoute.risk.level, safeRoute.risk.description)
     : 'A rota segura sera exibida assim que o calculo terminar.';
-
+    
   const loadSafeRoute = useCallback(async () => {
     if (!hasOriginCoords || !hasDestinationCoords) return;
 

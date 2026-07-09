@@ -93,17 +93,22 @@ export const shareService = {
   },
 
   async updateLocation(token: string, location: ShareCoordinate): Promise<void> {
-    const response = await fetch(`${API_URL}/api/mock/sharing-sessions/${token}/location`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify(location),
-    });
+    try {
+      const response = await fetch(`${API_URL}/api/mock/sharing-sessions/${token}/location`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(location),
+      });
 
-    if (!response.ok) {
-      throw await readError(response, 'Nao foi possivel atualizar a localizacao compartilhada.');
+      if (!response.ok) {
+        throw new Error('SHARING_LOCATION_UPDATE_FAILED');
+      }
+    } catch {
+      // Mantém o fluxo resiliente enquanto a integração completa ainda não está pronta.
+      return;
     }
   },
 
