@@ -223,6 +223,21 @@ export default function SharedRouteTrackingScreen({ token }: Props) {
     );
   }
 
+  if (error === 'NETWORK' || (!session && !loading)) {
+    return (
+      <SafeAreaView style={styles.errorContainer}>
+        <Ionicons name="cloud-offline-outline" size={64} color="#94a3b8" />
+        <Text style={styles.errorTitle}>Sem conexao com o servidor</Text>
+        <Text style={styles.errorDescription}>
+          Verifique se o backend esta rodando em http://192.168.1.8:8000 e se o celular esta na mesma rede.
+        </Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/')}>
+          <Text style={styles.backButtonText}>Voltar para o inicio</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
   const initialRegion = session ? {
     latitude: session.currentLocation.latitude,
     longitude: session.currentLocation.longitude,

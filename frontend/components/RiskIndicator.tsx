@@ -61,11 +61,11 @@ export default function RiskIndicator({
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.titleRow}>
-                <Ionicons name="shield-outline" size={20} color="#2dd4bf" />
+                <Ionicons name="shield-outline" size={20} color="#3B9B6E" />
                 <Text style={styles.title}>Status de Segurança</Text>
               </View>
               <TouchableOpacity style={styles.closeBtn} onPress={() => setDetailsVisible(false)}>
-                <Ionicons name="close" size={24} color="#f8fafc" />
+                <Ionicons name="close" size={22} color="#1A3550" />
               </TouchableOpacity>
             </View>
 
@@ -105,7 +105,7 @@ export default function RiskIndicator({
               activeOpacity={0.7}
             >
               <Text style={styles.legendLinkText}>Entender legenda de cores</Text>
-              <Ionicons name="arrow-forward" size={14} color="#2dd4bf" />
+              <Ionicons name="arrow-forward" size={14} color="#3B9B6E" />
             </TouchableOpacity>
           </View>
         </View>
@@ -120,13 +120,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 999,
     gap: 6,
     shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
   },
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    backgroundColor: 'rgba(26, 53, 80, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -144,14 +144,14 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: '#1e293b',
-    borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: '#334155',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#DDE7F0',
     padding: 20,
     shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
+    shadowOpacity: 0.16,
+    shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
     alignItems: 'center',
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    color: '#f8fafc',
+    color: '#1A3550',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#334155',
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: 12,
     gap: 10,
     marginBottom: 16,
     borderWidth: 1,
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   descText: {
-    color: '#94a3b8',
+    color: '#64748B',
     fontSize: 13,
     lineHeight: 18,
     textAlign: 'center',
@@ -207,10 +207,10 @@ const styles = StyleSheet.create({
   statsContainer: {
     width: '100%',
     flexDirection: 'row',
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#E8EEF5',
     paddingVertical: 12,
     marginBottom: 20,
   },
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statLabel: {
-    color: '#64748b',
+    color: '#64748B',
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -228,13 +228,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   statValue: {
-    color: '#f8fafc',
+    color: '#1A3550',
     fontSize: 18,
     fontWeight: '800',
   },
   divider: {
     width: 1,
-    backgroundColor: '#334155',
+    backgroundColor: '#E8EEF5',
   },
   legendLink: {
     flexDirection: 'row',
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   legendLinkText: {
-    color: '#2dd4bf',
+    color: '#3B9B6E',
     fontSize: 13,
     fontWeight: '700',
   },

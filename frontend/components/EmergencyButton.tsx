@@ -15,7 +15,7 @@ export default function EmergencyButton({ onPress, style }: EmergencyButtonProps
       activeOpacity={0.85}
       accessibilityLabel="Botão de Emergência"
     >
-      <Ionicons name="warning" size={48} color="#ffffff" />
+      <Ionicons name="warning" size={38} color="#ffffff" />
     </TouchableOpacity>
   );
 }
@@ -23,20 +23,20 @@ export default function EmergencyButton({ onPress, style }: EmergencyButtonProps
 const styles = StyleSheet.create({
   button: {
     position: 'absolute',
-    bottom: 95, // Erguido para o dobro de altura da base útil anterior (para dar espaço e destaque chamativo)
-    width: 96,  // O dobro exato do tamanho padrão (antigo 48)
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#dc2626', 
+    bottom: 95,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#C44133', 
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#fca5a5',
-    shadowColor: '#dc2626',
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
+    borderWidth: 2.5,
+    borderColor: '#E8A89E',
+    shadowColor: '#C44133',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
     zIndex: 99,
-    elevation: 12,
+    elevation: 10,
   },
 });

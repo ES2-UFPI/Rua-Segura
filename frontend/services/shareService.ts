@@ -43,13 +43,31 @@ async function readError(response: Response, fallback: string): Promise<ShareSer
   return new ShareServiceError(data?.detail || data?.message || fallback);
 }
 
+async function requestWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMs = 8000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export const shareService = {
   async startSharing(
     currentLocation: ShareCoordinate,
     destination: ShareCoordinate,
     routeCoordinates?: ShareCoordinate[],
   ): Promise<ShareSession> {
-    const response = await fetch(`${API_URL}/api/mock/sharing-sessions`, {
+    const response = await requestWithTimeout(`${API_URL}/api/mock/sharing-sessions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -80,7 +98,7 @@ export const shareService = {
   },
 
   async stopSharing(token: string): Promise<void> {
-    const response = await fetch(`${API_URL}/api/mock/sharing-sessions/${token}`, {
+    const response = await requestWithTimeout(`${API_URL}/api/mock/sharing-sessions/${token}`, {
       method: 'DELETE',
       headers: {
         Accept: 'application/json',
@@ -94,7 +112,7 @@ export const shareService = {
 
   async updateLocation(token: string, location: ShareCoordinate): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/api/mock/sharing-sessions/${token}/location`, {
+      const response = await requestWithTimeout(`${API_URL}/api/mock/sharing-sessions/${token}/location`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -113,7 +131,7 @@ export const shareService = {
   },
 
   async getSharedRoute(token: string): Promise<SharedRouteDetails> {
-    const response = await fetch(`${API_URL}/api/mock/shared-routes/${token}`, {
+    const response = await requestWithTimeout(`${API_URL}/api/mock/shared-routes/${token}`, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
