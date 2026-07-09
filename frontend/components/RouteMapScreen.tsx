@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,10 +6,19 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams} from 'expo-router';
+import {
+  calculateSafeRoute,
+  formatRiskLevel,
+  formatRouteSafetyMessage,
+  formatRouteDistance,
+  formatRouteDuration,
+  SafeRouteSearchResult,
+} from '../services/routeService';
 
 type RouteCoordinates = {
   latitude: number;
@@ -23,6 +32,7 @@ type RouteMapParams = {
   originLongitude?: string;
   destinationLatitude?: string;
   destinationLongitude?: string;
+  routeData?: string;
 };
 
 const FALLBACK_ORIGIN: RouteCoordinates = {
@@ -58,53 +68,88 @@ function parseCoord(value: string | undefined, fallback: number): number {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
-function createMockRouteLine(
-  origin: RouteCoordinates,
-  destination: RouteCoordinates,
-): RouteCoordinates[] {
-  // Rota mockada apenas para preparar a tela.
-  // A linha real será substituída futuramente pela rota calculada pela API.
-  return [
-    origin,
-    {
-      latitude: origin.latitude + 0.0012,
-      longitude: origin.longitude + 0.001,
-    },
-    {
-      latitude: origin.latitude + 0.002,
-      longitude: origin.longitude + 0.0024,
-    },
-    {
-      latitude: destination.latitude - 0.0008,
-      longitude: destination.longitude - 0.0006,
-    },
-    destination,
-  ];
+
+function parseRouteData(value: string | undefined): SafeRouteSearchResult | null {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value) as SafeRouteSearchResult;
+    return Array.isArray(parsed.points) && parsed.points.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 type RouteSummaryCardProps = {
   originName: string;
   destinationName: string;
+  distanceLabel: string;
+  durationLabel: string;
+  riskLabel: string;
+  riskLevel: string;
+  riskDescription: string;
+  errorMessage: string | null;
+  isLoading: boolean;
+  onRetry: () => void;
   onStartRoute: () => void;
 };
 
 function RouteSummaryCard({
   originName,
   destinationName,
+  distanceLabel,
+  durationLabel,
+  riskLabel,
+  riskLevel,
+  riskDescription,
+  errorMessage,
+  isLoading,
+  onRetry,
   onStartRoute,
 }: RouteSummaryCardProps) {
+  const riskBadgeStyle =
+    riskLevel === 'HIGH'
+      ? styles.riskBadgeHigh
+      : riskLevel === 'MEDIUM'
+      ? styles.riskBadgeMedium
+      : styles.riskBadgeLow;
+
+  const riskBadgeTextStyle =
+    riskLevel === 'HIGH'
+      ? styles.riskBadgeTextHigh
+      : riskLevel === 'MEDIUM'
+      ? styles.riskBadgeTextMedium
+      : styles.riskBadgeTextLow;
+
   return (
     <View style={styles.routeSummaryCard}>
       <View style={styles.summaryTopRow}>
         <View>
           <Text style={styles.summaryTitle}>Rota recomendada</Text>
-          <Text style={styles.summaryDistance}>2,4 km • 8 min</Text>
+          <Text style={styles.summaryDistance}>{distanceLabel} - {durationLabel}</Text>
         </View>
 
-        <View style={styles.riskBadge}>
-          <Text style={styles.riskBadgeText}>Baixo risco</Text>
+         <View style={[styles.riskBadge, riskBadgeStyle]}>
+          <Text style={[styles.riskBadgeText, riskBadgeTextStyle]}>{riskLabel}</Text>
         </View>
       </View>
+
+      {isLoading && (
+        <View style={styles.routeFeedbackBox}>
+          <ActivityIndicator size="small" color="#16A34A" />
+          <Text style={styles.routeFeedbackText}>Calculando rota segura...</Text>
+        </View>
+      )}
+
+      {errorMessage && (
+        <View style={styles.routeErrorBox}>
+          <Ionicons name="alert-circle-outline" size={18} color="#DC2626" />
+          <Text style={styles.routeErrorText}>{errorMessage}</Text>
+          <TouchableOpacity onPress={onRetry} style={styles.retryButton}>
+            <Text style={styles.retryButtonText}>Tentar</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.routePointsBox}>
         <View style={styles.routeDotsColumn}>
@@ -123,19 +168,11 @@ function RouteSummaryCard({
         </View>
       </View>
 
-      <View style={styles.reasonBox}>
-        <Text style={styles.reasonTitle}>Por que essa rota?</Text>
-
-        <Text style={styles.reasonText}>
-          Esta rota evita áreas com maior concentração de ocorrências e prioriza
-          vias mais iluminadas.
-        </Text>
-      </View>
-
       <TouchableOpacity
         style={styles.startRouteButton}
         activeOpacity={0.85}
         onPress={onStartRoute}
+        disabled={isLoading || !!errorMessage}
       >
         <Text style={styles.startRouteButtonText}>Iniciar rota</Text>
       </TouchableOpacity>
@@ -166,6 +203,10 @@ export default function RouteMapScreen() {
 
   const originName = params.originName ?? '';
   const destinationName = params.destinationName ?? '';
+  const initialRouteData = parseRouteData(params.routeData);
+  const [safeRoute, setSafeRoute] = useState<SafeRouteSearchResult | null>(initialRouteData);
+  const [isRouteLoading, setIsRouteLoading] = useState(false);
+  const [routeErrorMessage, setRouteErrorMessage] = useState<string | null>(null);
 
   const hasOriginCoords =
     params.originLatitude != null && params.originLongitude != null;
@@ -202,7 +243,56 @@ export default function RouteMapScreen() {
   const initialOrigin = originCoords ?? FALLBACK_ORIGIN;
   const initialDestination = destinationCoords ?? FALLBACK_DESTINATION;
 
-  const routeLineCoords = createMockRouteLine(initialOrigin, initialDestination);
+  const routeLineCoords = useMemo(
+    () => (safeRoute?.points && safeRoute.points.length > 0 ? safeRoute.points : []),
+    [safeRoute],
+  );
+
+  const distanceLabel = safeRoute ? formatRouteDistance(safeRoute.distanceMeters) : '-- km';
+  const durationLabel = safeRoute ? formatRouteDuration(safeRoute.durationSeconds) : '-- min';
+  const riskLabel = safeRoute ? formatRiskLevel(safeRoute.risk.level) : 'Calculando';
+  const riskLevel = safeRoute?.risk.level ?? '';
+  const riskDescription = safeRoute
+    ? formatRouteSafetyMessage(safeRoute.risk.level, safeRoute.risk.description)
+    : 'A rota segura sera exibida assim que o calculo terminar.';
+    
+  const loadSafeRoute = useCallback(async () => {
+    if (!hasOriginCoords || !hasDestinationCoords) return;
+
+    setIsRouteLoading(true);
+    setRouteErrorMessage(null);
+
+    try {
+      const route = await calculateSafeRoute({
+        origin: {
+          latitude: initialOrigin.latitude,
+          longitude: initialOrigin.longitude,
+        },
+        destination: {
+          latitude: initialDestination.latitude,
+          longitude: initialDestination.longitude,
+        },
+      });
+      setSafeRoute(route);
+    } catch (error: any) {
+      setRouteErrorMessage(error?.message || 'Nao foi possivel calcular a rota segura.');
+    } finally {
+      setIsRouteLoading(false);
+    }
+  }, [
+    hasOriginCoords,
+    hasDestinationCoords,
+    initialOrigin.latitude,
+    initialOrigin.longitude,
+    initialDestination.latitude,
+    initialDestination.longitude,
+  ]);
+
+  useEffect(() => {
+    if (!safeRoute && hasOriginCoords && hasDestinationCoords) {
+      loadSafeRoute();
+    }
+  }, [hasDestinationCoords, hasOriginCoords, loadSafeRoute, safeRoute]);
 
   const handleStartRoute = () => {
     router.push({
@@ -214,9 +304,12 @@ export default function RouteMapScreen() {
         originLongitude: String(initialOrigin.longitude),
         destinationLatitude: String(initialDestination.latitude),
         destinationLongitude: String(initialDestination.longitude),
-        estimatedTime: '8 min',
-        totalDistance: '2,4 km',
-        riskLevel: 'Baixo',
+        estimatedTime: durationLabel,
+        totalDistance: distanceLabel,
+        riskLevel: riskLabel,
+        routeMessage: riskDescription,
+        routeCoordinatesJson: JSON.stringify(routeLineCoords),
+        stepsJson: JSON.stringify(safeRoute?.steps ?? []),
       },
     });
   };
@@ -318,17 +411,22 @@ export default function RouteMapScreen() {
         webPolylineRef.current = null;
       }
 
-      webPolylineRef.current = L.polyline(
-        routeLineCoords.map((coord) => [coord.latitude, coord.longitude]),
-        {
-          color: '#16A34A',
-          weight: 5,
-          opacity: 0.85,
-        },
-      ).addTo(map);
+      if (routeLineCoords.length > 1) {
+        webPolylineRef.current = L.polyline(
+          routeLineCoords.map((coord) => [coord.latitude, coord.longitude]),
+          {
+            color: '#16A34A',
+            weight: 5,
+            opacity: 0.85,
+          },
+        ).addTo(map);
+      }
 
       const bounds = L.latLngBounds(
-        routeLineCoords.map((coord) => [coord.latitude, coord.longitude]),
+        (routeLineCoords.length > 1
+          ? routeLineCoords
+          : [initialOrigin, initialDestination]
+        ).map((coord) => [coord.latitude, coord.longitude]),
       );
 
       map.fitBounds(bounds, {
@@ -374,6 +472,8 @@ export default function RouteMapScreen() {
     initialOrigin.longitude,
     initialDestination.latitude,
     initialDestination.longitude,
+    safeRoute,
+    routeLineCoords,
   ]);
 
   if (!hasRouteData) {
@@ -466,6 +566,14 @@ export default function RouteMapScreen() {
             <RouteSummaryCard
               originName={originName}
               destinationName={destinationName}
+              distanceLabel={distanceLabel}
+              durationLabel={durationLabel}
+              riskLabel={riskLabel}
+              riskLevel={riskLevel}
+              riskDescription={riskDescription}
+              errorMessage={routeErrorMessage}
+              isLoading={isRouteLoading}
+              onRetry={loadSafeRoute}
               onStartRoute={handleStartRoute}
             />
           </View>
@@ -508,6 +616,14 @@ export default function RouteMapScreen() {
             <RouteSummaryCard
               originName={originName}
               destinationName={destinationName}
+              distanceLabel={distanceLabel}
+              durationLabel={durationLabel}
+              riskLabel={riskLabel}
+              riskLevel={riskLevel}
+              riskDescription={riskDescription}
+              errorMessage={routeErrorMessage}
+              isLoading={isRouteLoading}
+              onRetry={loadSafeRoute}
               onStartRoute={handleStartRoute}
             />
           </View>
@@ -549,11 +665,13 @@ export default function RouteMapScreen() {
             showsMyLocationButton={false}
             toolbarEnabled={false}
           >
-            <Polyline
-              coordinates={routeLineCoords}
-              strokeColor="#16A34A"
-              strokeWidth={5}
-            />
+            {routeLineCoords.length > 1 && (
+              <Polyline
+                coordinates={routeLineCoords}
+                strokeColor="#16A34A"
+                strokeWidth={5}
+              />
+            )}
 
             <Marker
               coordinate={initialOrigin}
@@ -573,6 +691,14 @@ export default function RouteMapScreen() {
           <RouteSummaryCard
             originName={originName}
             destinationName={destinationName}
+            distanceLabel={distanceLabel}
+            durationLabel={durationLabel}
+            riskLabel={riskLabel}
+            riskLevel={riskLevel}
+            riskDescription={riskDescription}
+            errorMessage={routeErrorMessage}
+            isLoading={isRouteLoading}
+            onRetry={loadSafeRoute}
             onStartRoute={handleStartRoute}
           />
         </View>
@@ -727,15 +853,127 @@ const styles = StyleSheet.create({
   },
 
   riskBadge: {
-    backgroundColor: '#DCFCE7',
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 999,
   },
 
+  riskBadgeLow: {
+    backgroundColor: '#DCFCE7',
+  },
+
+  riskBadgeMedium: {
+    backgroundColor: '#FEF3C7',
+  },
+
+  riskBadgeHigh: {
+    backgroundColor: '#FEE2E2',
+  },
+
   riskBadgeText: {
-    color: '#166534',
     fontSize: 11,
+    fontWeight: '800',
+  },
+
+  riskBadgeTextLow: {
+    color: '#166534',
+  },
+
+  riskBadgeTextMedium: {
+    color: '#92400E',
+  },
+
+  riskBadgeTextHigh: {
+    color: '#B42318',
+  },
+
+  routeMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+
+  routeMetricItem: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 6,
+  },
+
+  routeMetricLabel: {
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    marginBottom: 3,
+  },
+
+  routeMetricText: {
+    color: '#102A56',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  routeMetricDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: '#E2E8F0',
+  },
+
+  routeFeedbackBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF3',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+
+  routeFeedbackText: {
+    color: '#166534',
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+
+  routeErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FEE2E2',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+
+  routeErrorText: {
+    flex: 1,
+    color: '#DC2626',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 16,
+    marginLeft: 8,
+  },
+
+  retryButton: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FCA5A5',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginLeft: 8,
+  },
+
+  retryButtonText: {
+    color: '#DC2626',
+    fontSize: 12,
     fontWeight: '800',
   },
 

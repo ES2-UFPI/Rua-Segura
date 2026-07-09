@@ -17,6 +17,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { DeviceLocationService } from '@/services/nativos/DeviceLocationService';
+import { geocodeLocation } from '../services/geocodingService';
+import { calculateSafeRoute } from '../services/routeService';
 
 type Coordinates = {
   latitude: number;
@@ -53,27 +55,27 @@ const EMPTY_LOCATION: RouteLocationDraft = {
 };
 
 const SAVED_LOCATIONS: Suggestion[] = [
- {
-  id: 'home',
-  label: 'Casa',
-  subtitle: 'Local salvo',
-  icon: 'home-outline',
-  coordinates: {
-    latitude: -5.0836,
-    longitude: -42.7934,
+  {
+    id: 'home',
+    label: 'Casa',
+    subtitle: 'Local salvo',
+    icon: 'home-outline',
+    coordinates: {
+      latitude: -5.0836,
+      longitude: -42.7934,
+    },
   },
-},
-{
-  id: 'work',
-  label: 'Trabalho',
-  subtitle: 'Local salvo',
-  icon: 'briefcase-outline',
-  coordinates: {
-    latitude: -5.0805,
-    longitude: -42.7901,
+  {
+    id: 'work',
+    label: 'Trabalho',
+    subtitle: 'Local salvo',
+    icon: 'briefcase-outline',
+    coordinates: {
+      latitude: -5.0805,
+      longitude: -42.7901,
+    },
   },
-},
-]
+];
 
 const RECENT_LOCATIONS: Suggestion[] = [
   {
@@ -141,6 +143,21 @@ const POPULAR_REGIONS: Suggestion[] = [
   },
 ];
 
+async function resolveRouteLocation(location: RouteLocationDraft): Promise<RouteLocationDraft> {
+  if (location.coordinates) {
+    return location;
+  }
+
+  const geocodedLocation = await geocodeLocation(location.text);
+
+  return {
+    text: location.text.trim() || geocodedLocation.label,
+    coordinates: {
+      latitude: geocodedLocation.latitude,
+      longitude: geocodedLocation.longitude,
+    },
+  };
+}
 
 export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) {
   const router = useRouter();
@@ -150,9 +167,9 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
     useState<RouteLocationDraft>(EMPTY_LOCATION);
 
   const [activeField, setActiveField] = useState<FieldName>('origin');
-  const [routeDraft, setRouteDraft] = useState<RouteSearchData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isFormValid =
     origin.text.trim().length > 0 && destination.text.trim().length > 0;
@@ -193,7 +210,7 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
     });
 
     setActiveField('origin');
-    setRouteDraft(null);
+    setErrorMessage(null);
   };
 
   const handleChangeDestination = (value: string) => {
@@ -203,14 +220,14 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
     });
 
     setActiveField('destination');
-    setRouteDraft(null);
+    setErrorMessage(null);
   };
 
   const handleClearOrigin = () => {
     if (isLoading) return;
 
     setOrigin(EMPTY_LOCATION);
-    setRouteDraft(null);
+    setErrorMessage(null);
     setActiveField('origin');
   };
 
@@ -218,7 +235,7 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
     if (isLoading) return;
 
     setDestination(EMPTY_LOCATION);
-    setRouteDraft(null);
+    setErrorMessage(null);
     setActiveField('destination');
   };
 
@@ -234,7 +251,7 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
       setDestination(selectedLocation);
     }
 
-    setRouteDraft(null);
+    setErrorMessage(null);
   };
 
   const prepareRouteDraft = (): RouteSearchData => {
@@ -254,11 +271,21 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
     if (!isFormValid || isLoading) return;
 
     setIsLoading(true);
+    setErrorMessage(null);
 
     try {
-      const preparedRouteDraft = prepareRouteDraft();
+      const draft = prepareRouteDraft();
+      const preparedRouteDraft: RouteSearchData = {
+        origin: await resolveRouteLocation(draft.origin),
+        destination: await resolveRouteLocation(draft.destination),
+      };
 
-      setRouteDraft(preparedRouteDraft);
+      const originCoordinates = preparedRouteDraft.origin.coordinates;
+      const destinationCoordinates = preparedRouteDraft.destination.coordinates;
+
+      if (!originCoordinates || !destinationCoordinates) {
+        throw new Error('Nao foi possivel encontrar coordenadas para origem e destino.');
+      }
 
       if (onSearch) {
         await onSearch(preparedRouteDraft);
@@ -266,10 +293,10 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
         await new Promise((resolve) => setTimeout(resolve, 900));
       }
 
-      console.log(
-        'Dados disponíveis para requisição de rota:',
-        preparedRouteDraft,
-      );
+      const safeRoute = await calculateSafeRoute({
+        origin: originCoordinates,
+        destination: destinationCoordinates,
+      });
 
       router.push({
         pathname: '/route-map',
@@ -295,7 +322,7 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
         },
       });
     } catch (error) {
-      console.error('Erro ao preparar rota:', error);
+      setErrorMessage((error as any)?.message || 'Nao foi possivel calcular a rota segura. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -444,23 +471,22 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
                     <Text style={styles.inputLabel}>Destino</Text>
 
                     <View style={styles.inputRow}>
-                    
-                    <TextInput
-                      style={[styles.textInput, styles.webInput]}
-                      placeholder="Informe o destino"
-                      placeholderTextColor="#94A3B8"
-                      value={destination.text}
-                      onChangeText={handleChangeDestination}
-                      editable={!isLoading}
-                      accessibilityLabel="Campo de destino"
-                      returnKeyType="done"
-                      onSubmitEditing={handleSearch}
-                      onFocus={() => setActiveField('destination')}
-                      autoCorrect={false}
-                      spellCheck={false}
-                      autoCapitalize="none"
-                      underlineColorAndroid="transparent"
-                    />
+                      <TextInput
+                        style={[styles.textInput, styles.webInput]}
+                        placeholder="Informe o destino"
+                        placeholderTextColor="#94A3B8"
+                        value={destination.text}
+                        onChangeText={handleChangeDestination}
+                        editable={!isLoading}
+                        accessibilityLabel="Campo de destino"
+                        returnKeyType="done"
+                        onSubmitEditing={handleSearch}
+                        onFocus={() => setActiveField('destination')}
+                        autoCorrect={false}
+                        spellCheck={false}
+                        autoCapitalize="none"
+                        underlineColorAndroid="transparent"
+                      />
 
                       {destination.text.length > 0 && !isLoading && (
                         <TouchableOpacity
@@ -520,6 +546,12 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
                 </Text>
               )}
 
+              {errorMessage && (
+                <View style={styles.errorBox}>
+                  <Ionicons name="alert-circle-outline" size={18} color="#DC2626" />
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                </View>
+              )}
 
               <View style={styles.suggestionsCard}>
                 <View style={styles.suggestionsHeader}>
@@ -555,7 +587,7 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
                   </Text>
 
                   <View style={styles.savedLocationsRow}>
-                    {SAVED_LOCATIONS.map((suggestion) => (
+                    {SAVED_LOCATIONS.map((suggestion: Suggestion) => (
                       <TouchableOpacity
                         key={suggestion.id}
                         style={styles.savedLocationCard}
@@ -782,9 +814,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   routeButtonIcon: {
-  width: 22,
-  height: 22,
-  marginRight: 8,
+    width: 22,
+    height: 22,
+    marginRight: 8,
   },
 
   searchButtonText: {
@@ -799,6 +831,27 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
     marginTop: 8,
+  },
+
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FEE2E2',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 10,
+  },
+
+  errorText: {
+    flex: 1,
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+    marginLeft: 8,
   },
 
   draftCard: {
@@ -965,5 +1018,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 1,
   },
-
 });

@@ -1,5 +1,10 @@
 import { API_URL } from '../config/api';
 
+export interface ShareCoordinate {
+  latitude: number;
+  longitude: number;
+}
+
 export interface ShareSession {
   id: string;
   token: string;
@@ -11,106 +16,131 @@ export interface ShareSession {
 
 export interface SharedRouteDetails {
   status: 'active' | 'ended' | 'expired';
-  origin: { latitude: number; longitude: number };
-  currentLocation: { latitude: number; longitude: number };
-  destination: { latitude: number; longitude: number };
+  origin: ShareCoordinate;
+  currentLocation: ShareCoordinate;
+  destination: ShareCoordinate;
+  routeCoordinates?: ShareCoordinate[];
   lastUpdatedAt: string;
 }
 
-export const shareService = {
-  /**
-   * Simula o início do compartilhamento de rota.
-   * Futuramente, esse serviço fará uma requisição HTTP real à API.
-   */
-  async startSharing(
-    currentLocation: { latitude: number; longitude: number },
-    destination: { latitude: number; longitude: number }
-  ): Promise<ShareSession> {
-    // Simular latência de rede de 1 segundo
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+class ShareServiceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ShareServiceError';
+  }
+}
 
-    const token = Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 8);
+function buildShareUrl(token: string, backendShareUrl?: string): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/share/${token}`;
+  }
+
+  return backendShareUrl?.replace('/shared/', '/share/') ?? `https://ruasegura.app/share/${token}`;
+}
+
+async function readError(response: Response, fallback: string): Promise<ShareServiceError> {
+  const data = await response.json().catch(() => null);
+  return new ShareServiceError(data?.detail || data?.message || fallback);
+}
+
+export const shareService = {
+  async startSharing(
+    currentLocation: ShareCoordinate,
+    destination: ShareCoordinate,
+    routeCoordinates?: ShareCoordinate[],
+  ): Promise<ShareSession> {
+    const response = await fetch(`${API_URL}/api/mock/sharing-sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        origin: routeCoordinates?.[0] ?? currentLocation,
+        currentLocation,
+        destination,
+        routeCoordinates,
+      }),
+    });
+
+    if (!response.ok) {
+      throw await readError(response, 'Nao foi possivel iniciar o compartilhamento.');
+    }
+
+    const data = await response.json();
+    const now = new Date().toISOString();
+
     return {
-      id: `share_mock_${Math.floor(Math.random() * 100000)}`,
-      token,
-      shareUrl: `https://ruasegura.app/share/${token}`,
+      id: data.token,
+      token: data.token,
+      shareUrl: buildShareUrl(data.token, data.shareUrl),
       status: 'active',
-      startedAt: new Date().toISOString(),
+      startedAt: now,
     };
   },
 
-  /**
-   * Simula o encerramento do compartilhamento de rota.
-   */
   async stopSharing(token: string): Promise<void> {
-    // Simular latência de rede de 800ms
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    const response = await fetch(`${API_URL}/api/mock/sharing-sessions/${token}`, {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    if (!response.ok && response.status !== 404) {
+      throw await readError(response, 'Nao foi possivel encerrar o compartilhamento.');
+    }
   },
 
-  /**
-   * Consulta os detalhes de uma sessão de compartilhamento ativa ou encerrada.
-   * Implementa fallback para dados mockados locais para testes offline do frontend.
-   */
-  async getSharedRoute(token: string): Promise<SharedRouteDetails> {
+  async updateLocation(token: string, location: ShareCoordinate): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/api/mock/shared-routes/${token}`, {
-        method: 'GET',
+      const response = await fetch(`${API_URL}/api/mock/sharing-sessions/${token}/location`, {
+        method: 'PATCH',
         headers: {
+          'Content-Type': 'application/json',
           Accept: 'application/json',
         },
+        body: JSON.stringify(location),
       });
 
-      if (response.status === 404) {
-        throw new Error('LINK_INVALID');
-      }
-      if (response.status === 410) {
-        throw new Error('LINK_EXPIRED');
-      }
       if (!response.ok) {
-        throw new Error('NETWORK_ERROR');
+        throw new Error('SHARING_LOCATION_UPDATE_FAILED');
       }
-
-      const data = await response.json();
-      return {
-        status: data.status,
-        origin: data.origin,
-        currentLocation: data.currentLocation,
-        destination: data.destination,
-        lastUpdatedAt: data.lastUpdatedAt,
-      };
-    } catch (error: any) {
-      if (error.message === 'LINK_INVALID' || error.message === 'LINK_EXPIRED') {
-        throw error;
-      }
-      
-      console.warn('Backend offline ou não integrado. Usando mock local do frontend para o token:', token);
-      
-      // Tratamento específico de tokens de teste mockados
-      if (token === 'invalid') {
-        throw new Error('LINK_INVALID');
-      }
-      if (token === 'expired') {
-        throw new Error('LINK_EXPIRED');
-      }
-      if (token === 'ended') {
-        return {
-          status: 'ended',
-          origin: { latitude: -5.0836, longitude: -42.7934 },
-          currentLocation: { latitude: -5.0820, longitude: -42.7915 },
-          destination: { latitude: -5.0805, longitude: -42.7901 },
-          lastUpdatedAt: new Date(Date.now() - 60000).toISOString(),
-        };
-      }
-
-      // Default: token ativo simulado
-      return {
-        status: 'active',
-        origin: { latitude: -5.0836, longitude: -42.7934 },
-        currentLocation: { latitude: -5.0820, longitude: -42.7915 },
-        destination: { latitude: -5.0805, longitude: -42.7901 },
-        lastUpdatedAt: new Date().toISOString(),
-      };
+    } catch {
+      // Mantém o fluxo resiliente enquanto a integração completa ainda não está pronta.
+      return;
     }
-  }
-};
+  },
 
+  async getSharedRoute(token: string): Promise<SharedRouteDetails> {
+    const response = await fetch(`${API_URL}/api/mock/shared-routes/${token}`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    if (response.status === 404) {
+      throw new ShareServiceError('LINK_INVALID');
+    }
+
+    if (response.status === 410) {
+      throw new ShareServiceError('LINK_EXPIRED');
+    }
+
+    if (!response.ok) {
+      throw await readError(response, 'Nao foi possivel carregar o compartilhamento.');
+    }
+
+    const data = await response.json();
+
+    return {
+      status: data.status,
+      origin: data.origin,
+      currentLocation: data.currentLocation,
+      destination: data.destination,
+      routeCoordinates: data.routeCoordinates,
+      lastUpdatedAt: data.lastUpdatedAt,
+    };
+  },
+};

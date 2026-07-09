@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import RouteSearchScreen from '../RouteSearchScreen';
 import { DeviceLocationService } from '@/services/nativos/DeviceLocationService';
 import { Alert } from 'react-native';
@@ -44,15 +44,16 @@ describe('TDD - RouteSearchScreen: Usar Localização Atual', () => {
 
     (DeviceLocationService.getCurrentLocation as jest.Mock).mockResolvedValue(mockLocation);
 
-    // No React 19 / Testing Library v14 do projeto, o método render retorna uma Promise
     const { getByText, getByLabelText } = await render(<RouteSearchScreen />);
 
     // 1. A opção "Usar localização atual" deve estar visível
     const optionButton = getByText('Usar localização atual');
     expect(optionButton).toBeTruthy();
 
-    // 2. Clicar no botão para capturar localização
-    fireEvent.press(optionButton);
+    // 2. Clicar no botão para capturar localização dentro do act (Fase de Refatoração de Testes)
+    await act(async () => {
+      fireEvent.press(optionButton);
+    });
 
     // 3. Aguardar o preenchimento do campo de Origem e coordenadas
     await waitFor(() => {
@@ -70,7 +71,9 @@ describe('TDD - RouteSearchScreen: Usar Localização Atual', () => {
     const { getByText } = await render(<RouteSearchScreen />);
     const optionButton = getByText('Usar localização atual');
 
-    fireEvent.press(optionButton);
+    await act(async () => {
+      fireEvent.press(optionButton);
+    });
 
     await waitFor(() => {
       expect(alertSpy).toHaveBeenCalledWith(

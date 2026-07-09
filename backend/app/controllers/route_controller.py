@@ -1,7 +1,8 @@
-from fastapi import APIRouter, status, HTTPException
+from fastapi import APIRouter, Query, status, HTTPException
 from fastapi.responses import JSONResponse
 from typing import Any, Dict
 from app.schemas.route_schema import validate_route_payload, SafeRouteResponse
+from app.services.geocoding_service import GeocodingProviderError, GeocodingService
 from app.services.open_route_service import OpenRouteServiceClient, RoutingProviderError
 from app.services.route_service import RouteService
 from app.services.route_mapper import RouteResponseMapper
@@ -12,6 +13,29 @@ router = APIRouter(prefix="/api/routes", tags=["Rotas Seguras"])
 # Instanciamos o client e o RouteService reutilizando o RiskService existente
 _routing_client = OpenRouteServiceClient()
 _route_service = RouteService(_routing_client, _risk_service)
+_geocoding_service = GeocodingService()
+
+
+@router.get("/geocode")
+def geocode_route_location(query: str = Query(..., min_length=3)):
+    """
+    Resolve um texto de endereco em coordenadas reais para calculo de rota.
+    """
+    try:
+        result = _geocoding_service.geocode(query)
+    except GeocodingProviderError:
+        return JSONResponse(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            content={"message": "Nao foi possivel buscar esse endereco no momento."}
+        )
+
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Endereco nao encontrado"
+        )
+
+    return result
 
 @router.post("/safe", response_model=SafeRouteResponse, status_code=status.HTTP_200_OK)
 def calculate_safe_route(payload: Dict[str, Any]):

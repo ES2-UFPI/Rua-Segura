@@ -58,6 +58,29 @@ class TestMockSharingEndpoints(unittest.TestCase):
             self.assertEqual(data["destination"]["longitude"], -42.8033)
             self.assertIn("lastUpdatedAt", data)
 
+    def test_create_and_get_session_with_route_coordinates(self):
+        route_coordinates = [
+            {"latitude": -5.0892, "longitude": -42.8016},
+            {"latitude": -5.0900, "longitude": -42.8020},
+            {"latitude": -5.0911, "longitude": -42.8033},
+        ]
+        payload = {
+            "origin": route_coordinates[0],
+            "currentLocation": route_coordinates[0],
+            "destination": route_coordinates[-1],
+            "routeCoordinates": route_coordinates,
+        }
+
+        create_response = self.client.post("/api/mock/sharing-sessions", json=payload)
+
+        self.assertEqual(create_response.status_code, 201)
+
+        token = create_response.json()["token"]
+        get_response = self.client.get(f"/api/mock/shared-routes/{token}")
+
+        self.assertEqual(get_response.status_code, 200)
+        self.assertEqual(get_response.json()["routeCoordinates"], route_coordinates)
+
     def test_get_session_not_found(self):
         response = self.client.get("/mock/shared-routes/nonexistenttoken")
         self.assertEqual(response.status_code, 404)

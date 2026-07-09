@@ -52,6 +52,7 @@ def create_sharing_session(payload: Dict[str, Any]):
     current_location = payload["currentLocation"]
     destination = payload["destination"]
     origin = payload.get("origin", current_location)
+    route_coordinates = payload.get("routeCoordinates")
 
     if not isinstance(current_location, dict) or "latitude" not in current_location or "longitude" not in current_location:
         raise HTTPException(
@@ -69,7 +70,8 @@ def create_sharing_session(payload: Dict[str, Any]):
         session = _sharing_service.create_session(
             current_location=current_location,
             destination=destination,
-            origin=origin
+            origin=origin,
+            route_coordinates=route_coordinates
         )
 
         return {
@@ -100,6 +102,7 @@ def get_shared_route(token: str):
             "origin": session.origin,
             "currentLocation": session.current_location,
             "destination": session.destination,
+            "routeCoordinates": session.route_coordinates,
             "lastUpdatedAt": session.last_updated_at
         }
 
