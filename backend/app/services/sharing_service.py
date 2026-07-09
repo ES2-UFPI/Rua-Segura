@@ -30,13 +30,15 @@ class SharingService:
         self,
         current_location: dict,
         destination: dict,
-        origin: Optional[dict] = None
+        origin: Optional[dict] = None,
+        route_coordinates: Optional[list[dict]] = None
     ) -> SharingSession:
         origin = origin or current_location
 
         validated_origin = self._validate_location("origin", origin)
         validated_current_location = self._validate_location("currentLocation", current_location)
         validated_destination = self._validate_location("destination", destination)
+        validated_route_coordinates = self._validate_route_coordinates(route_coordinates)
 
         token = uuid.uuid4().hex[:8]
         now = datetime.now(timezone.utc)
@@ -48,6 +50,7 @@ class SharingService:
             origin=validated_origin,
             current_location=validated_current_location,
             destination=validated_destination,
+            route_coordinates=validated_route_coordinates,
             created_at=now,
             expires_at=expires_at,
             last_updated_at=now
@@ -143,3 +146,20 @@ class SharingService:
             "latitude": validated_latitude,
             "longitude": validated_longitude
         }
+
+    def _validate_route_coordinates(self, route_coordinates: Optional[list[dict]]) -> Optional[list[dict]]:
+        if route_coordinates is None:
+            return None
+
+        if not isinstance(route_coordinates, list):
+            raise ValueError("routeCoordinates must be a list")
+
+        validated_coordinates = [
+            self._validate_location("routeCoordinates", coordinate)
+            for coordinate in route_coordinates
+        ]
+
+        if len(validated_coordinates) < 2:
+            raise ValueError("routeCoordinates must contain at least two points")
+
+        return validated_coordinates
