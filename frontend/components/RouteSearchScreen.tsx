@@ -11,10 +11,12 @@ import {
   KeyboardAvoidingView,
   StatusBar,
   Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { DeviceLocationService } from '@/services/nativos/DeviceLocationService';
 
 type Coordinates = {
   latitude: number;
@@ -150,9 +152,39 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
   const [activeField, setActiveField] = useState<FieldName>('origin');
   const [routeDraft, setRouteDraft] = useState<RouteSearchData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
 
   const isFormValid =
     origin.text.trim().length > 0 && destination.text.trim().length > 0;
+
+  const handleUseCurrentLocation = async () => {
+    if (isLocating) return;
+    setIsLocating(true);
+    try {
+      const location = await DeviceLocationService.getCurrentLocation();
+      if (location) {
+        setOrigin({
+          text: 'Minha Localização',
+          coordinates: {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          },
+        });
+      } else {
+        Alert.alert(
+          'Erro de Localização',
+          'Não foi possível obter a sua localização atual. Verifique se o GPS está ativado e as permissões de acesso concedidas.'
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        'Erro de Localização',
+        'Não foi possível obter a sua localização atual. Verifique se o GPS está ativado e as permissões de acesso concedidas.'
+      );
+    } finally {
+      setIsLocating(false);
+    }
+  };
 
   const handleChangeOrigin = (value: string) => {
     setOrigin({
@@ -219,55 +251,55 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
   };
 
   const handleSearch = async () => {
-  if (!isFormValid || isLoading) return;
+    if (!isFormValid || isLoading) return;
 
-  setIsLoading(true);
+    setIsLoading(true);
 
-  try {
-    const preparedRouteDraft = prepareRouteDraft();
+    try {
+      const preparedRouteDraft = prepareRouteDraft();
 
-    setRouteDraft(preparedRouteDraft);
+      setRouteDraft(preparedRouteDraft);
 
-    if (onSearch) {
-      await onSearch(preparedRouteDraft);
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, 900));
+      if (onSearch) {
+        await onSearch(preparedRouteDraft);
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 900));
+      }
+
+      console.log(
+        'Dados disponíveis para requisição de rota:',
+        preparedRouteDraft,
+      );
+
+      router.push({
+        pathname: '/route-map',
+        params: {
+          originName: preparedRouteDraft.origin.text,
+          destinationName: preparedRouteDraft.destination.text,
+          originLatitude:
+            preparedRouteDraft.origin.coordinates?.latitude !== undefined
+              ? String(preparedRouteDraft.origin.coordinates.latitude)
+              : '',
+          originLongitude:
+            preparedRouteDraft.origin.coordinates?.longitude !== undefined
+              ? String(preparedRouteDraft.origin.coordinates.longitude)
+              : '',
+          destinationLatitude:
+            preparedRouteDraft.destination.coordinates?.latitude !== undefined
+              ? String(preparedRouteDraft.destination.coordinates.latitude)
+              : '',
+          destinationLongitude:
+            preparedRouteDraft.destination.coordinates?.longitude !== undefined
+              ? String(preparedRouteDraft.destination.coordinates.longitude)
+              : '',
+        },
+      });
+    } catch (error) {
+      console.error('Erro ao preparar rota:', error);
+    } finally {
+      setIsLoading(false);
     }
-
-    console.log(
-      'Dados disponíveis para requisição de rota:',
-      preparedRouteDraft,
-    );
-
-    router.push({
-      pathname: '/route-map',
-      params: {
-        originName: preparedRouteDraft.origin.text,
-        destinationName: preparedRouteDraft.destination.text,
-        originLatitude:
-          preparedRouteDraft.origin.coordinates?.latitude !== undefined
-            ? String(preparedRouteDraft.origin.coordinates.latitude)
-            : '',
-        originLongitude:
-          preparedRouteDraft.origin.coordinates?.longitude !== undefined
-            ? String(preparedRouteDraft.origin.coordinates.longitude)
-            : '',
-        destinationLatitude:
-          preparedRouteDraft.destination.coordinates?.latitude !== undefined
-            ? String(preparedRouteDraft.destination.coordinates.latitude)
-            : '',
-        destinationLongitude:
-          preparedRouteDraft.destination.coordinates?.longitude !== undefined
-            ? String(preparedRouteDraft.destination.coordinates.longitude)
-            : '',
-      },
-    });
-  } catch (error) {
-    console.error('Erro ao preparar rota:', error);
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const renderSuggestionSection = (title: string, suggestions: Suggestion[]) => {
     return (
@@ -497,6 +529,25 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
                       : 'Escolha seu destino'}
                   </Text>
                 </View>
+
+                {/* Botão de Localização Atual para a Origem */}
+                {activeField === 'origin' && (
+                  <TouchableOpacity
+                    style={styles.currentLocationRow}
+                    onPress={handleUseCurrentLocation}
+                    disabled={isLoading || isLocating}
+                    activeOpacity={0.7}
+                  >
+                    {isLocating ? (
+                      <ActivityIndicator size="small" color="#16A34A" style={styles.currentLocationIcon} />
+                    ) : (
+                      <Ionicons name="locate" size={18} color="#16A34A" style={styles.currentLocationIcon} />
+                    )}
+                    <Text style={styles.currentLocationText}>
+                      {isLocating ? 'Obtendo localização...' : 'Usar localização atual'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
                 <View style={styles.savedSection}>
                   <Text style={styles.suggestionSectionTitle}>
@@ -799,6 +850,24 @@ const styles = StyleSheet.create({
     color: '#102A56',
     fontSize: 14,
     fontWeight: '800',
+  },
+
+  currentLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5EAF0',
+    backgroundColor: '#F8FAFC',
+  },
+  currentLocationIcon: {
+    marginRight: 10,
+  },
+  currentLocationText: {
+    color: '#16A34A',
+    fontSize: 14,
+    fontWeight: '700',
   },
 
   savedSection: {
