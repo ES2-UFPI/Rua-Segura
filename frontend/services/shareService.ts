@@ -1,5 +1,10 @@
 import { API_URL } from '../config/api';
 
+export interface ShareCoordinate {
+  latitude: number;
+  longitude: number;
+}
+
 export interface ShareSession {
   id: string;
   token: string;
@@ -11,9 +16,9 @@ export interface ShareSession {
 
 export interface SharedRouteDetails {
   status: 'active' | 'ended' | 'expired';
-  origin: { latitude: number; longitude: number };
-  currentLocation: { latitude: number; longitude: number };
-  destination: { latitude: number; longitude: number };
+  origin: ShareCoordinate;
+  currentLocation: ShareCoordinate;
+  destination: ShareCoordinate;
   lastUpdatedAt: string;
 }
 
@@ -45,6 +50,26 @@ export const shareService = {
   async stopSharing(token: string): Promise<void> {
     // Simular latência de rede de 800ms
     await new Promise((resolve) => setTimeout(resolve, 800));
+  },
+
+  async updateLocation(token: string, location: ShareCoordinate): Promise<void> {
+    try {
+      const response = await fetch(`${API_URL}/api/mock/sharing-sessions/${token}/location`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(location),
+      });
+
+      if (!response.ok) {
+        throw new Error('SHARING_LOCATION_UPDATE_FAILED');
+      }
+    } catch {
+      // Mantém o fluxo resiliente enquanto a integração completa ainda não está pronta.
+      return;
+    }
   },
 
   /**
