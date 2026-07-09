@@ -1,57 +1,101 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   Alert,
   Platform,
-  TouchableOpacity,
+  TouchableOpacity
 } from 'react-native';
 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import MapScreen from '@/components/MapScreen';
+
+import MapScreen, { MapScreenRef } from '@/components/MapScreen';
 import LocationReviewButton from '@/components/LocationReviewButton';
 import ReviewModal from '@/components/ReviewModal';
 import ConfirmReviewModal from '@/components/ConfirmReviewModal';
 import RiskIndicator from '@/components/RiskIndicator';
 import EmergencyButton from '@/components/EmergencyButton';
+import EmergencyModal from '@/components/EmergencyModal';
+import { OccurrenceDetailSheet } from '@/components/OccurrenceDetailSheet';
 import { reviewApi, LocationReviewResponse, RiskResponse } from '@/services/api';
 import { useLocation } from '@/hooks/useLocation';
 import { NotificationFacade } from '@/services/notifications/NotificationFacade';
 import AlertScreen from '@/components/alerts/AlertScreen';
 import { alertApi, AlertPayload } from '@/services/alertApi';
+import * as Notifications from 'expo-notifications';
+import { useHandedness } from '@/context/HandednessContext';
+import Sidebar from '@/components/Sidebar';
+import BaseScreen from '@/components/BaseScreen';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  
-  const { 
-    latitude: userLat, 
-    longitude: userLng, 
-    getUserLocation, 
-    startBackgroundLocation 
+
+  const {
+    latitude: userLat,
+    longitude: userLng,
+    getUserLocation,
+    startBackgroundLocation
   } = useLocation();
-  
+
   const [reviews, setReviews] = useState<LocationReviewResponse[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<{ latitude: number; longitude: number } | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [pendingReview, setPendingReview] = useState<{ category: string; description: string } | null>(null);
-  const [loading, setLoading] = useState(true);
   const [backendStatus, setBackendStatus] = useState<'online' | 'offline'>('offline');
   const [areaRisk, setAreaRisk] = useState<RiskResponse>({ level: 'AZUL', score: 0, count: 0 });
   const [alerts, setAlerts] = useState<AlertPayload[]>([]);
-  const [isRightHanded, setIsRightHanded] = useState(true);
   const [lastAlertId, setLastAlertId] = useState<string | null>(null);
+  const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
+  const [emergencyModalVisible, setEmergencyModalVisible] = useState(false);
+
+  // Ergonomics & Sidebar States
+  const { isRightHanded } = useHandedness();
+  const [sidebarVisible, setSidebarVisible] = useState(false);
+  const [sidebarLegendExpanded, setSidebarLegendExpanded] = useState(false);
+  const [tipBannerVisible, setTipBannerVisible] = useState(false);
+
+  const mapRef = useRef<MapScreenRef>(null);
 
   useEffect(() => {
     console.log('[HomeScreen] Inicializando serviços de rastreamento...');
-    void startBackgroundLocation(); 
+    void startBackgroundLocation();
+  }, []);
+
+  useEffect(() => {
+    const checkNotificationPermission = async () => {
+      let enabled = false;
+      if (Platform.OS === 'web') {
+        enabled = 'Notification' in window && window.Notification.permission === 'granted';
+      } else {
+        try {
+          const { status } = await Notifications.getPermissionsAsync();
+          enabled = status === 'granted';
+        } catch {
+          enabled = false;
+        }
+      }
+      if (enabled) {
+        void NotificationFacade.registrarTokenNoBackend();
+      }
+    };
+    void checkNotificationPermission();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = NotificationFacade.configurarListenersFirebase((alerta) => {
+      console.log('[HomeScreen] Alerta push recebido:', alerta);
+      void NotificationFacade.processarAlertaDeRisco(alerta, setAlerts);
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   const loadReviews = async () => {
     try {
-      setLoading(true);
       const data = await reviewApi.getReviews();
       setReviews(data);
       setBackendStatus('online');
@@ -70,15 +114,13 @@ export default function HomeScreen() {
           },
         ]);
       }
-    } finally {
-      setLoading(false);
     }
   };
 
   const loadCriticalAlerts = async (lat: number, lng: number) => {
     try {
       const activeAlerts = await alertApi.getAlerts({ latitude: lat, longitude: lng });
-      
+
       if (activeAlerts && activeAlerts.length > 0) {
         const novoAlerta = activeAlerts[0];
 
@@ -98,7 +140,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (userLat !== null && userLng !== null) {
       void loadCriticalAlerts(userLat, userLng);
-      
+
       const atualizarRiscoPorMovimento = async () => {
         try {
           const riskData = await reviewApi.getAreaRisk(userLat, userLng);
@@ -108,10 +150,10 @@ export default function HomeScreen() {
           console.error("Erro ao atualizar risco por movimento de GPS:", error);
         }
       };
-      
+
       void atualizarRiscoPorMovimento();
     }
-  }, [userLat, userLng]); 
+  }, [userLat, userLng]);
 
   const handleDismissAlert = (alertId: string) => {
     console.log(`[HomeScreen] Alerta ${alertId} fechado pelo usuário.`);
@@ -187,7 +229,7 @@ export default function HomeScreen() {
 
       setReviews((prev) => [newReview, ...prev]);
       setSelectedPoint(null);
-      
+
       if (Platform.OS === 'web') {
         alert('Avaliação cadastrada com sucesso!');
       } else {
@@ -200,36 +242,23 @@ export default function HomeScreen() {
   };
 
   const handleEmergencyPress = () => {
-    Alert.alert("Emergência", "Botão de emergência acionado! (Ação apenas estética nesta sprint).");
+    setEmergencyModalVisible(true);
   };
 
-  const dynamicSideStyle = isRightHanded ? { right: 16 } : { left: 16 };
+  const showTipBanner = () => {
+    setTipBannerVisible(true);
+    setTimeout(() => {
+      setTipBannerVisible(false);
+    }, 5000);
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Top Header Bar */}
-      <View style={styles.header}>
-        <View style={styles.brandRow}>
-          <Ionicons name="shield-half" size={24} color="#0f766e" />
-          <Text style={styles.headerTitle}>Rua Segura</Text>
-        </View>
-        <TouchableOpacity style={styles.statusBadge} onPress={() => void loadReviews()}>
-          <View
-            style={[
-              styles.statusDot,
-              { backgroundColor: backendStatus === 'online' ? '#10b981' : '#ef4444' },
-            ]}
-          />
-          <Text style={styles.statusText}>
-            API: {backendStatus === 'online' ? 'Online' : 'Offline'}
-          </Text>
-          <Ionicons name="refresh-outline" size={14} color="#94a3b8" style={{ marginLeft: 4 }} />
-        </TouchableOpacity>
-      </View>
-
+    <BaseScreen>
+      <SafeAreaView style={styles.container} edges={['top']}>
       {/* Main Map Area */}
       <View style={styles.mapContainer}>
         <MapScreen
+          ref={mapRef}
           reviews={reviews}
           selectedPoint={selectedPoint}
           onMapSelectPoint={handleMapSelectPoint}
@@ -237,59 +266,146 @@ export default function HomeScreen() {
           userLocation={userLat !== null && userLng !== null ? { latitude: userLat, longitude: userLng } : null}
           onRecenterPress={getUserLocation}
           isRightHanded={isRightHanded}
+          onReviewPress={(id) => {
+            const cleanId = id.replace('mock-', '');
+            setActiveReviewId(cleanId);
+          }}
+          riskLevel={areaRisk.level}
         />
-        
-        <RiskIndicator 
-          level={areaRisk.level} 
-          score={areaRisk.score} 
-          isRightHanded={isRightHanded} 
-        />
-        
-        {/* Balão de Controle do Modo Destro/Canhoto */}
-        <TouchableOpacity 
+
+        {/* Top Header overlaying the map */}
+        <View style={styles.header}>
+          {isRightHanded ? (
+            <>
+              {/* Left Slot: Tip Button */}
+              <TouchableOpacity style={styles.headerIconBtn} onPress={showTipBanner} activeOpacity={0.7}>
+                <Ionicons name="help-circle" size={22} color="#D4903C" />
+              </TouchableOpacity>
+
+              {/* Center Slot: Centered Risk Indicator Pill */}
+              <View style={styles.headerCenter}>
+                <RiskIndicator
+                  level={areaRisk.level}
+                  score={areaRisk.score}
+                  count={areaRisk.count}
+                  onOpenLegend={() => {
+                    setSidebarLegendExpanded(true);
+                    setSidebarVisible(true);
+                  }}
+                />
+              </View>
+
+              {/* Right Slot: Sidebar Toggle Button */}
+              <TouchableOpacity style={styles.headerIconBtn} onPress={() => setSidebarVisible(true)} activeOpacity={0.7}>
+                <Ionicons name="menu" size={22} color="#E8EDF2" />
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              {/* Left Slot: Sidebar Toggle Button */}
+              <TouchableOpacity style={styles.headerIconBtn} onPress={() => setSidebarVisible(true)} activeOpacity={0.7}>
+                <Ionicons name="menu" size={22} color="#E8EDF2" />
+              </TouchableOpacity>
+
+              {/* Center Slot: Centered Risk Indicator Pill */}
+              <View style={styles.headerCenter}>
+                <RiskIndicator
+                  level={areaRisk.level}
+                  score={areaRisk.score}
+                  count={areaRisk.count}
+                  onOpenLegend={() => {
+                    setSidebarLegendExpanded(true);
+                    setSidebarVisible(true);
+                  }}
+                />
+              </View>
+
+              {/* Right Slot: Tip Button */}
+              <TouchableOpacity style={styles.headerIconBtn} onPress={showTipBanner} activeOpacity={0.7}>
+                <Ionicons name="help-circle" size={22} color="#D4903C" />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+
+        {/* Temporary Tip Banner */}
+        {tipBannerVisible && (
+          <View style={styles.tipBanner}>
+            <Ionicons name="information-circle-outline" size={18} color="#ffffff" />
+            <Text style={styles.tipBannerText}>
+              Dica: Dê um toque longo em qualquer ponto do mapa para selecionar a localização do reporte.
+            </Text>
+            <TouchableOpacity onPress={() => setTipBannerVisible(false)}>
+              <Ionicons name="close" size={18} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Botão de Recentralização */}
+        <TouchableOpacity
           style={[
-            styles.handSelectorBubble, 
-            isRightHanded ? { right: 12 } : { left: 12 }
+            styles.recenterButtonBottom,
+            isRightHanded ? { left: 16 } : { right: 16 },
+            { bottom: 160 + insets.bottom }
           ]}
-          onPress={() => setIsRightHanded(!isRightHanded)}
+          onPress={() => mapRef.current?.recenter()}
           activeOpacity={0.8}
+          accessibilityLabel="Centralizar na minha localização"
         >
-          <Ionicons name="hand-left-outline" size={14} color="#2dd4bf" />
-          <Text style={styles.handSelectorText}>
-            {isRightHanded ? 'Destro' : 'Canhoto'}
-          </Text>
+          <Ionicons name="locate" size={22} color="#FFFFFF" />
         </TouchableOpacity>
 
-        {/* Botão de Emergência mudando de lado */}
+        {/* Botão de Emergência */}
         <EmergencyButton
           onPress={handleEmergencyPress}
           style={[
-            dynamicSideStyle, 
-            { bottom: 90 + insets.bottom, zIndex: 1000 } 
+            isRightHanded ? { right: 16 } : { left: 16 },
+            { bottom: 150 + insets.bottom }
           ]}
         />
 
-        {/* 🌟 CONTAINER DO BOTÃO: Movido para o ponto mais baixo (bottom: 8) e aplicando o scale */}
+        {/* CONTAINER DO BOTÃO DE REGISTRAR OCORRÊNCIA */}
         <View style={[
-          styles.actionButtonsContainer, 
-          { bottom: 8 + insets.bottom } 
+          styles.actionButtonsContainer,
+          { bottom: 12 + insets.bottom }
         ]}>
-          <View style={styles.smallButtonWrapper}>
-            <LocationReviewButton
-              isSelected={selectedPoint !== null}
-              onPress={handleReviewButtonClick}
-            />
-          </View>
-          
           {selectedPoint ? (
+            <>
+              <View style={styles.smallButtonWrapper}>
+                <LocationReviewButton
+                  isSelected={selectedPoint !== null}
+                  onPress={handleReviewButtonClick}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.clearSelectionButtonSmall}
+                onPress={() => setSelectedPoint(null)}
+              >
+                <Ionicons name="close" size={18} color="#ffffff" />
+                <Text style={styles.clearSelectionButtonTextSmall}>Cancelar</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
             <TouchableOpacity
-              style={styles.clearSelectionButtonSmall}
-              onPress={() => setSelectedPoint(null)}
+              style={styles.mapHintCard}
+              onPress={showTipBanner}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Como registrar uma ocorrencia"
             >
-              <Ionicons name="close-circle" size={18} color="#ffffff" />
-              <Text style={styles.clearSelectionButtonTextSmall}>Cancelar</Text>
+              <View style={styles.mapHintIcon}>
+                <Ionicons name="location-outline" size={20} color="#3B9B6E" />
+              </View>
+
+              <View style={styles.mapHintTextBox}>
+                <Text style={styles.mapHintTitle}>Registrar ocorrencia</Text>
+                <Text style={styles.mapHintText} numberOfLines={2}>
+                  Toque e segure no mapa para marcar o local.
+                </Text>
+              </View>
             </TouchableOpacity>
-          ) : null}
+          )}
         </View>
 
         {/* Alertas flutuantes soberanos */}
@@ -298,32 +414,15 @@ export default function HomeScreen() {
           top: 0,
           left: 0,
           right: 0,
-          bottom: 150 + insets.bottom, 
-          pointerEvents: 'box-none', 
-          zIndex: 9999,              
-          elevation: 10,             
+          bottom: 150 + insets.bottom,
+          pointerEvents: 'box-none',
+          zIndex: 9999,
+          elevation: 10,
         }}>
           <AlertScreen alerts={alerts} onDismiss={handleDismissAlert} />
         </View>
       </View>
 
-      {/* Barra de Navegação Inferior Estética */}
-      <View style={styles.bottomTabBar}>
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
-          <Ionicons name="map" size={22} color="#2dd4bf" />
-          <Text style={[styles.tabText, styles.tabTextActive]}>Mapa</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
-          <Ionicons name="star" size={22} color="#94a3b8" />
-          <Text style={styles.tabText}>Favoritos</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
-          <Ionicons name="person" size={22} color="#94a3b8" />
-          <Text style={styles.tabText}>Perfil</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* Modais de Avaliação */}
       {selectedPoint ? (
@@ -351,132 +450,193 @@ export default function HomeScreen() {
           setPendingReview(null);
         }}
       />
+
+      <EmergencyModal
+        visible={emergencyModalVisible}
+        onClose={() => setEmergencyModalVisible(false)}
+        userLatitude={userLat}
+        userLongitude={userLng}
+      />
+
+      {activeReviewId !== null && (
+        <OccurrenceDetailSheet
+          occurrenceId={activeReviewId}
+          onClose={() => setActiveReviewId(null)}
+        />
+      )}
+
+      {/* Sidebar Control Panel */}
+      <Sidebar
+        visible={sidebarVisible}
+        onClose={() => {
+          setSidebarVisible(false);
+          setSidebarLegendExpanded(false);
+        }}
+        backendStatus={backendStatus}
+        onReloadReviews={loadReviews}
+        defaultLegendExpanded={sidebarLegendExpanded}
+      />
     </SafeAreaView>
+    </BaseScreen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
   },
   header: {
-    height: Platform.OS === 'ios' ? 50 : 60,
-    backgroundColor: '#1e293b',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: Platform.OS === 'ios' ? 60 : 68,
+    backgroundColor: 'transparent',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderColor: '#334155',
+    paddingHorizontal: 18,
+    borderBottomWidth: 0,
     zIndex: 100,
   },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { color: '#f8fafc', fontSize: 18, fontWeight: '800', letterSpacing: 0.5 },
-  statusBadge: {
+  headerIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(26,53,80,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tipBanner: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 68,
+    left: 16,
+    right: 16,
+    backgroundColor: '#2A6B5A',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
+    zIndex: 999,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  statusText: {
-    color: '#94a3b8',
-    fontSize: 11,
+  tipBannerText: {
+    color: '#ffffff',
+    fontSize: 12,
     fontWeight: '600',
+    flex: 1,
   },
   mapContainer: {
     flex: 1,
     position: 'relative',
   },
-  handSelectorBubble: {
+  recenterButtonBottom: {
     position: 'absolute',
-    top: 154, 
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1e293b',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#1A3550',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: 'rgba(255,255,255,0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 99,
     shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    zIndex: 1000,
-    elevation: 5,
-    gap: 4,
-  },
-  handSelectorText: {
-    color: '#f8fafc',
-    fontSize: 11,
-    fontWeight: '700',
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
   },
   actionButtonsContainer: {
     position: 'absolute',
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    zIndex: 99,
+    gap: 10,
+    zIndex: 80,
     elevation: 8,
   },
-  // 🌟 ESTILO NOVO: Reduz o tamanho do botão em 15% de forma limpa e responsiva
   smallButtonWrapper: {
-    transform: [{ scale: 0.85 }], 
+    transform: [{ scale: 0.94 }],
   },
   clearSelectionButtonSmall: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 44,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
     gap: 4,
-    backgroundColor: '#1f2937',
+    backgroundColor: '#1A3550',
     borderWidth: 1,
-    borderColor: '#334155',
-    elevation: 6,
+    borderColor: 'rgba(255,255,255,0.12)',
+    elevation: 4,
   },
   clearSelectionButtonTextSmall: {
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',
   },
-  bottomTabBar: {
-    backgroundColor: '#1e293b',
+  mapHintCard: {
+    width: 315,
+    minHeight: 76,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     flexDirection: 'row',
-    justifyContent: 'space-around',
     alignItems: 'center',
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 14,
-    borderTopWidth: 1,
-    borderColor: '#334155',
-    zIndex: 100,
+    shadowColor: '#1A3550',
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 8,
   },
-  tabItem: {
+  mapHintIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#ECFDF3',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 10,
+  },
+  mapHintTextBox: {
     flex: 1,
-    paddingVertical: 4,
+    minWidth: 0,
   },
-  tabText: {
-    color: '#64748b',
-    fontSize: 11,
+  mapHintTitle: {
+    color: '#1A3550',
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  mapHintText: {
+    color: '#64748B',
+    fontSize: 12,
     fontWeight: '600',
-    marginTop: 4,
-  },
-  tabTextActive: {
-    color: '#2dd4bf', 
+    lineHeight: 16,
   },
 });

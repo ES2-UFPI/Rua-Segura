@@ -1,6 +1,7 @@
 import { Vibration } from 'react-native';
 import { NotificationFacade } from '../NotificationFacade';
 import { AlertPayload } from '@/services/alertApi';
+import * as Notifications from 'expo-notifications';
 
 jest.mock('react-native', () => {
   const rn = jest.requireActual('react-native');
@@ -10,6 +11,19 @@ jest.mock('react-native', () => {
   };
   return rn;
 });
+
+jest.mock('expo-notifications', () => ({
+  getPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+  requestPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+  scheduleNotificationAsync: jest.fn().mockResolvedValue('notification-id'),
+  setNotificationHandler: jest.fn(),
+}));
+
+jest.mock('expo-constants', () => ({
+  default: {
+    appOwnership: 'expo',
+  },
+}));
 
 describe('Teste Unitário - NotificationFacade (Sistema Sensorial)', () => {
   let mockSetAlertsState: jest.Mock;
@@ -44,5 +58,12 @@ describe('Teste Unitário - NotificationFacade (Sistema Sensorial)', () => {
     await NotificationFacade.processarAlertaDeRisco(alertaAtencao, mockSetAlertsState);
 
     expect(Vibration.vibrate).toHaveBeenCalledWith(300);
+  });
+
+  it('deve ignorar a integração remota quando estiver em Expo Go', async () => {
+    const concedido = await NotificationFacade.solicitarPermissao();
+    expect(concedido).toBe(false);
+    expect(Notifications.getPermissionsAsync).not.toHaveBeenCalled();
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
   });
 });

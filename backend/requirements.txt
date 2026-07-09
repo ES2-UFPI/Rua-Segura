@@ -1,2 +1,6 @@
 fastapi>=0.110.0
 uvicorn[standard]>=0.28.0
+pytest>=8.0.0
+httpx
+python-dotenv
+firebase-admin
