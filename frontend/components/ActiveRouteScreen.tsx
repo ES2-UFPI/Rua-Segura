@@ -42,6 +42,7 @@ type ActiveRouteParams = {
   estimatedTime?: string;
   totalDistance?: string;
   riskLevel?: string;
+  routeMessage?: string;
   routeCoordinatesJson?: string;
   stepsJson?: string;
 };
@@ -62,15 +63,9 @@ const COLORS = {
 
 const FALLBACK_TIME = '8 min';
 const FALLBACK_DISTANCE = '2,4 km';
-const FALLBACK_RISK = 'Baixo';
+const FALLBACK_RISK = 'Baixo risco';
+const FALLBACK_ROUTE_MESSAGE = 'Resumo da rota indisponivel.';
 const ANDROID_NAV_FALLBACK_BOTTOM = 42;
-
-const STATIC_ROUTE_SUMMARY = {
-  estimatedTime: '8 min',
-  totalDistance: '2,4 km',
-  riskLevel: 'Baixo risco',
-  routeMessage: 'Rota segura no momento. Os dados deste card estão estáticos por enquanto.',
-};
 
 const MARKER_DOT_GREEN = require('../assets/images/marker-dot-green.png');
 const USER_LOCATION_MARKER = require('../assets/images/user-location.png');
@@ -710,7 +705,7 @@ function TopInstructionCard({
               styles.topInstructionTitle,
               compact && styles.topInstructionTitleCompact,
             ]}
-            numberOfLines={1}
+            numberOfLines={2}
             ellipsizeMode="tail"
           >
             {step.instruction}
@@ -895,13 +890,13 @@ export default function ActiveRouteScreen() {
   const originName = String(params.originName ?? '').trim();
   const destinationName = String(params.destinationName ?? '').trim();
 
-  const estimatedTime = STATIC_ROUTE_SUMMARY.estimatedTime;
+  const estimatedTime = String(params.estimatedTime ?? FALLBACK_TIME).trim();
 
-  const totalDistance = STATIC_ROUTE_SUMMARY.totalDistance;
+  const totalDistance = String(params.totalDistance ?? FALLBACK_DISTANCE).trim();
 
-  const riskLevel = STATIC_ROUTE_SUMMARY.riskLevel;
+  const riskLevel = String(params.riskLevel ?? FALLBACK_RISK).trim();
 
-  const routeMessage = STATIC_ROUTE_SUMMARY.routeMessage;
+  const routeMessage = String(params.routeMessage ?? FALLBACK_ROUTE_MESSAGE).trim();
 
   const origin: RouteCoordinates = {
     latitude: parseCoord(params.originLatitude, MOCK_USER_POSITION.latitude),
@@ -1156,7 +1151,7 @@ const styles = StyleSheet.create({
   topInstructionCard: {
     width: '100%',
     maxWidth: 520,
-    minHeight: 82,
+    minHeight: 92,
     backgroundColor: COLORS.primaryBlue,
     borderRadius: 18,
     paddingHorizontal: 14,
@@ -1171,7 +1166,7 @@ const styles = StyleSheet.create({
   },
 
   topInstructionCardCompact: {
-    minHeight: 76,
+    minHeight: 88,
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 9,
@@ -1201,21 +1196,21 @@ const styles = StyleSheet.create({
 
   topInstructionPrefix: {
     color: '#D9FFF7',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     marginBottom: 1,
   },
 
   topInstructionTitle: {
     color: COLORS.white,
-    fontSize: 26,
-    lineHeight: 31,
+    fontSize: 22,
+    lineHeight: 26,
     fontWeight: '900',
   },
 
   topInstructionTitleCompact: {
-    fontSize: 22,
-    lineHeight: 26,
+    fontSize: 19,
+    lineHeight: 23,
   },
 
   topInstructionFooter: {
@@ -1227,17 +1222,19 @@ const styles = StyleSheet.create({
 
   topInstructionDistance: {
     color: COLORS.white,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
+    flexShrink: 0,
   },
 
   nextActionPill: {
     minHeight: 23,
     borderRadius: 12,
-    paddingHorizontal: 9,
+    paddingHorizontal: 8,
     backgroundColor: 'rgba(255,255,255,0.16)',
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
   },
 
   nextActionPillText: {
