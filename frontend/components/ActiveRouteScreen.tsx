@@ -80,6 +80,29 @@ const FALLBACK_DESTINATION: RouteCoordinates = {
   longitude: -42.7901,
 };
 
+const getRiskColors = (level: string) => {
+  const normalized = level.toLowerCase();
+  if (normalized.includes('baixo')) {
+    return {
+      hex: '#16A34A',
+      rgba: 'rgba(22, 163, 74, 0.16)',
+    };
+  } else if (normalized.includes('moderado') || normalized.includes('medio') || normalized.includes('médio')) {
+    return {
+      hex: '#EAB308',
+      rgba: 'rgba(234, 179, 8, 0.16)',
+    };
+  } else if (normalized.includes('alto')) {
+    return {
+      hex: '#DC2626',
+      rgba: 'rgba(220, 38, 38, 0.16)',
+    };
+  }
+  return {
+    hex: '#1473E6',
+    rgba: 'rgba(20, 115, 230, 0.16)',
+  };
+};
 
 const MOCK_ACTIVE_ROUTE = {
   currentStepIndex: 0,
@@ -312,6 +335,7 @@ type ActiveRouteMapProps = {
   destinationName: string;
   routeCoordinates: RouteCoordinates[];
   recenterSignal: number;
+  riskLevel: string;
 };
 
 function ActiveRouteMap({
@@ -322,8 +346,10 @@ function ActiveRouteMap({
   destinationName,
   routeCoordinates,
   recenterSignal,
+  riskLevel,
 }: ActiveRouteMapProps) {
   const isWeb = Platform.OS === 'web';
+  const riskColors = getRiskColors(riskLevel);
   const webMapId = 'active-route-map-leaflet';
 
   const webMapRef = useRef<any>(null);
@@ -449,33 +475,26 @@ function ActiveRouteMap({
         className: 'user-current-icon',
         html: `
           <div style="
-            width:48px;
-            height:48px;
-            border-radius:24px;
-            background:rgba(20,115,230,0.16);
+            width:32px;
+            height:32px;
+            border-radius:50%;
+            background:${riskColors.rgba};
             display:flex;
             align-items:center;
             justify-content:center;
           ">
             <div style="
-              width:38px;
-              height:38px;
-              border-radius:19px;
-              background:white;
-              display:flex;
-              align-items:center;
-              justify-content:center;
-              box-shadow:0 5px 12px rgba(0,0,0,0.25);
-              color:#1473E6;
-              font-size:21px;
-              font-weight:900;
-            ">
-              ➤
-            </div>
+              width:16px;
+              height:16px;
+              border-radius:50%;
+              background:${riskColors.hex};
+              border:2px solid white;
+              box-shadow:0 0 6px rgba(0,0,0,0.3);
+            "></div>
           </div>
         `,
-        iconSize: [48, 48],
-        iconAnchor: [24, 24],
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
       });
 
       const originMarker = L.marker([origin.latitude, origin.longitude], {
@@ -570,6 +589,7 @@ function ActiveRouteMap({
     routeCoordinates,
     mapInitialRegion.latitude,
     mapInitialRegion.longitude,
+    riskLevel,
   ]);
 
   useEffect(() => {
@@ -645,11 +665,25 @@ function ActiveRouteMap({
       <Marker
         coordinate={currentLocation}
         title="Posicao simulada"
-        image={USER_LOCATION_MARKER}
         anchor={{ x: 0.5, y: 0.5 }}
         centerOffset={{ x: 0, y: 0 }}
         zIndex={10}
-      />
+      >
+        <View
+          style={[
+            styles.nativeUserMarkerOuter,
+            { backgroundColor: riskColors.rgba },
+          ]}
+          testID="user-location-marker-dot"
+        >
+          <View
+            style={[
+              styles.nativeUserMarkerInnerDot,
+              { backgroundColor: riskColors.hex },
+            ]}
+          />
+        </View>
+      </Marker>
     </MapView>
   );
 }
@@ -1052,6 +1086,7 @@ export default function ActiveRouteScreen() {
           destinationName={destinationName}
           routeCoordinates={routeCoordinates}
           recenterSignal={recenterSignal}
+          riskLevel={riskLevel}
         />
 
         <TopInstructionCard
@@ -1567,5 +1602,29 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 15,
     fontWeight: '800',
+  },
+
+  nativeUserMarkerOuter: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nativeUserMarkerInnerDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    elevation: 3,
   },
 });

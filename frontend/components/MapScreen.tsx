@@ -24,6 +24,29 @@ export const getCategoryColor = (category: string): string => {
       return '#4b5563';
   }
 };
+const getRiskColors = (level: string) => {
+  const normalized = level.toLowerCase();
+  if (normalized.includes('baixo') || normalized.includes('azul') || normalized.includes('low')) {
+    return {
+      hex: '#036D9A',
+      rgba: 'rgba(3, 109, 154, 0.16)',
+    };
+  } else if (normalized.includes('moderado') || normalized.includes('medio') || normalized.includes('médio') || normalized.includes('amarelo') || normalized.includes('medium')) {
+    return {
+      hex: '#EAB308',
+      rgba: 'rgba(234, 179, 8, 0.16)',
+    };
+  } else if (normalized.includes('alto') || normalized.includes('vermelho') || normalized.includes('high')) {
+    return {
+      hex: '#CF0000',
+      rgba: 'rgba(207, 0, 0, 0.16)',
+    };
+  }
+  return {
+    hex: '#036D9A',
+    rgba: 'rgba(3, 109, 154, 0.16)',
+  };
+};
 
 let MapView: any = null;
 let Marker: any = null;
@@ -52,6 +75,7 @@ interface MapScreenProps {
   onRecenterPress?: () => Promise<void> | void;
   isRightHanded?: boolean;
   onReviewPress?: (id: string) => void;
+  riskLevel?: string;
 }
 
 export interface MapScreenRef {
@@ -68,10 +92,12 @@ const MapScreen = React.forwardRef<MapScreenRef, MapScreenProps>(function MapScr
     onRecenterPress,
     isRightHanded = true,
     onReviewPress,
+    riskLevel = 'AZUL',
   },
   ref
 ) {
   const isWeb = Platform.OS === 'web';
+  const riskColors = getRiskColors(riskLevel);
   const webMapId = 'leaflet-map-container';
 
   const mapCenterRef = useRef<[number, number] | null>(null);
@@ -79,6 +105,7 @@ const MapScreen = React.forwardRef<MapScreenRef, MapScreenProps>(function MapScr
   const webMapRef = useRef<any>(null);
   const webMarkersRef = useRef<any[]>([]);
   const webSelectedMarkerRef = useRef<any>(null);
+  const webUserMarkerRef = useRef<any>(null);
   const nativeMapRef = useRef<any>(null);
   const hasCenteredOnUserRef = useRef<boolean>(false);
   const forceCenterRef = useRef<boolean>(false);
@@ -296,7 +323,46 @@ const MapScreen = React.forwardRef<MapScreenRef, MapScreenProps>(function MapScr
         .openPopup();
       webSelectedMarkerRef.current = marker;
     }
-  }, [reviews, selectedPoint, isWeb, mapReady]);
+
+    if (webUserMarkerRef.current) {
+      webUserMarkerRef.current.remove();
+      webUserMarkerRef.current = null;
+    }
+
+    if (userLocation) {
+      const riskColors = getRiskColors(riskLevel);
+      const userIcon = L.divIcon({
+        className: 'user-current-icon',
+        html: `
+          <div style="
+            width:32px;
+            height:32px;
+            border-radius:50%;
+            background:${riskColors.rgba};
+            display:flex;
+            align-items:center;
+            justify-content:center;
+          ">
+            <div style="
+              width:16px;
+              height:16px;
+              border-radius:50%;
+              background:${riskColors.hex};
+              border:2px solid white;
+              box-shadow:0 0 6px rgba(0,0,0,0.3);
+            "></div>
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+
+      const userMarker = L.marker([userLocation.latitude, userLocation.longitude], { icon: userIcon })
+        .addTo(map)
+        .bindPopup('<b>Você</b>');
+      webUserMarkerRef.current = userMarker;
+    }
+  }, [reviews, selectedPoint, userLocation, riskLevel, isWeb, mapReady]);
 
   if (isWeb) {
     return (
@@ -327,7 +393,7 @@ const MapScreen = React.forwardRef<MapScreenRef, MapScreenProps>(function MapScr
         ref={nativeMapRef}
         style={styles.map}
         initialRegion={defaultRegion}
-        showsUserLocation={true}
+        showsUserLocation={false}
         showsMyLocationButton={false}
         followsUserLocation={false}
         toolbarEnabled={false}
@@ -362,6 +428,30 @@ const MapScreen = React.forwardRef<MapScreenRef, MapScreenProps>(function MapScr
             pinColor="#ea580c"
           />
         ) : null}
+
+        {userLocation && (
+          <Marker
+            coordinate={userLocation}
+            title="Sua Localização"
+            anchor={{ x: 0.5, y: 0.5 }}
+            centerOffset={{ x: 0, y: 0 }}
+            zIndex={10}
+          >
+            <View
+              style={[
+                styles.nativeUserMarkerOuter,
+                { backgroundColor: riskColors.rgba },
+              ]}
+            >
+              <View
+                style={[
+                  styles.nativeUserMarkerInnerDot,
+                  { backgroundColor: riskColors.hex },
+                ]}
+              />
+            </View>
+          </Marker>
+        )}
       </MapView>
     </View>
   );
@@ -394,5 +484,28 @@ const styles = StyleSheet.create({
   fallbackText: {
     color: '#cbd5e1',
     fontSize: 16,
+  },
+  nativeUserMarkerOuter: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nativeUserMarkerInnerDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    elevation: 3,
   },
 });

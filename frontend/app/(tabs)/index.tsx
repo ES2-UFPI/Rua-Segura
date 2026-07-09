@@ -270,6 +270,7 @@ export default function HomeScreen() {
             const cleanId = id.replace('mock-', '');
             setActiveReviewId(cleanId);
           }}
+          riskLevel={areaRisk.level}
         />
 
         {/* Top Header overlaying the map */}
