@@ -17,6 +17,10 @@ class OpenRouteServiceClient:
         Busca as direções de uma rota no OpenRouteService via API HTTP.
         """
         api_key = os.getenv("ORS_API_KEY")
+        if not api_key or api_key.strip().lower().startswith("your"):
+            raise RoutingProviderError(
+                "Configure ORS_API_KEY no arquivo backend/.env para calcular rotas reais."
+            )
         headers = {
             "Authorization": api_key or "",
             "Content-Type": "application/json"
@@ -25,7 +29,9 @@ class OpenRouteServiceClient:
             "coordinates": [
                 [origin_lng, origin_lat],
                 [dest_lng, dest_lat]
-            ]
+            ],
+            "instructions": True,
+            "language": "pt"
         }
         try:
             response = httpx.post(self.base_url, headers=headers, json=payload, timeout=10.0)

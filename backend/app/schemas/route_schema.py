@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from fastapi import HTTPException, status
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, Optional
 
 class CoordinateSchema(BaseModel):
     latitude: float = Field(..., description="Latitude da coordenada")
@@ -24,6 +24,14 @@ class NearbyOccurrenceSchema(BaseModel):
     longitude: float = Field(..., description="Coordenada de longitude")
     distanceFromRouteMeters: float = Field(..., description="Distância da ocorrência à rota em metros")
 
+class NavigationStepSchema(BaseModel):
+    instruction: str = Field(..., description="Instrucao de navegacao")
+    streetName: str = Field("", description="Nome da via")
+    nextInstruction: str = Field("", description="Proxima instrucao")
+    distance: str = Field(..., description="Distancia formatada do trecho")
+    maneuver: str = Field(..., description="Tipo de manobra")
+    routePointIndex: Optional[int] = Field(None, description="Índice do ponto da polilinha onde a instrução termina")
+
 class SafeRouteResponse(BaseModel):
     status: str = Field(..., description="Status do cálculo da rota")
     distance: float = Field(..., description="Distância da rota em metros (compatibilidade)")
@@ -35,6 +43,7 @@ class SafeRouteResponse(BaseModel):
     risk: RiskInfoSchema = Field(..., description="Consolidado de risco da rota")
     route: RouteGeometrySchema = Field(..., description="Geometria LineString da rota")
     points: List[CoordinateSchema] = Field(..., description="Lista de pontos formatados da rota")
+    steps: List[NavigationStepSchema] = Field(default_factory=list, description="Instrucoes de navegacao da rota")
     nearbyOccurrences: List[NearbyOccurrenceSchema] = Field(..., description="Lista de ocorrências próximas à rota")
 
 def validate_route_payload(payload: Dict[str, Any]) -> tuple[CoordinateSchema, CoordinateSchema]:
