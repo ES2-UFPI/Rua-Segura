@@ -9,6 +9,11 @@ from app.main import app
 
 class TestSafeRouteEndpoints(unittest.TestCase):
     def setUp(self):
+        # Garante a existência de uma chave fictícia para testes em ambiente de CI (sem .env)
+        import os
+        self.old_api_key = os.environ.get("ORS_API_KEY")
+        os.environ["ORS_API_KEY"] = "test-api-key"
+
         self.client = TestClient(app)
         self.endpoint = "/api/routes/safe"
 
@@ -42,6 +47,11 @@ class TestSafeRouteEndpoints(unittest.TestCase):
         self.mock_post.return_value = mock_response
 
     def tearDown(self):
+        import os
+        if self.old_api_key is None:
+            os.environ.pop("ORS_API_KEY", None)
+        else:
+            os.environ["ORS_API_KEY"] = self.old_api_key
         self.patcher.stop()
 
     def _valid_payload(self):
@@ -333,6 +343,9 @@ def test_safe_route_consolidated_response_success(monkeypatch):
     client = TestClient(app)
     endpoint = "/api/routes/safe"
     
+    # Garante a existência de uma chave fictícia para testes em ambiente de CI
+    monkeypatch.setenv("ORS_API_KEY", "test-api-key")
+    
     class FakeResponse:
         def __init__(self, status_code, json_data):
             self.status_code = status_code
@@ -442,11 +455,14 @@ def test_safe_route_consolidated_response_success(monkeypatch):
         
     finally:
         _in_memory_repository._reviews = original_reviews
-
-
+ 
+ 
 def test_safe_route_failure_external_service_returns_502(monkeypatch):
     client = TestClient(app)
     endpoint = "/api/routes/safe"
+    
+    # Garante a existência de uma chave fictícia para testes em ambiente de CI
+    monkeypatch.setenv("ORS_API_KEY", "test-api-key")
     
     def fake_post_error(url, headers=None, json=None, timeout=None):
         raise Exception("Connection timed out")
@@ -469,11 +485,14 @@ def test_safe_route_failure_external_service_returns_502(monkeypatch):
     assert response.status_code == 502
     data = response.json()
     assert data == {"message": "Não foi possível calcular a rota no momento."}
-
-
+ 
+ 
 def test_safe_route_high_risk_level(monkeypatch):
     client = TestClient(app)
     endpoint = "/api/routes/safe"
+    
+    # Garante a existência de uma chave fictícia para testes em ambiente de CI
+    monkeypatch.setenv("ORS_API_KEY", "test-api-key")
     
     class FakeResponse:
         def __init__(self, status_code, json_data):

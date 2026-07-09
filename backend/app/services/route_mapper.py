@@ -29,5 +29,6 @@ class RouteResponseMapper:
                 "coordinates": data["coordinates"]
             },
             "points": data["points"],
+            "steps": data.get("steps", []),
             "nearbyOccurrences": data["nearbyOccurrences"]
         }
