@@ -34,7 +34,7 @@ export default function BaseScreen({ children }: BaseScreenProps) {
           activeOpacity={0.7}
           onPress={() => router.push('/')}
         >
-          <Ionicons name="map" size={15} color={isMapaActive ? '#2dd4bf' : '#94a3b8'} />
+          <Ionicons name="map" size={15} color={isMapaActive ? '#3B9B6E' : '#B8C9DB'} />
           <Text style={[styles.tabText, isMapaActive && styles.tabTextActive]}>Mapa</Text>
         </TouchableOpacity>
 
@@ -45,7 +45,7 @@ export default function BaseScreen({ children }: BaseScreenProps) {
         >
           <Image
             source={routeIcon}
-            style={[styles.tabIconImage, { tintColor: isRotasActive ? '#2dd4bf' : '#94a3b8' }]}
+            style={[styles.tabIconImage, { tintColor: isRotasActive ? '#3B9B6E' : '#B8C9DB' }]}
             resizeMode="contain"
           />
           <Text style={[styles.tabText, isRotasActive && styles.tabTextActive]}>Rotas</Text>
@@ -55,7 +55,7 @@ export default function BaseScreen({ children }: BaseScreenProps) {
           style={styles.tabItem}
           activeOpacity={0.7}
         >
-          <Ionicons name="person" size={15} color="#94a3b8" />
+          <Ionicons name="person" size={15} color="#B8C9DB" />
           <Text style={styles.tabText}>Perfil</Text>
         </TouchableOpacity>
       </View>
@@ -66,19 +66,19 @@ export default function BaseScreen({ children }: BaseScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#1A3550',
   },
   content: {
     flex: 1,
   },
   bottomTabBar: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#1A3550',
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingTop: 5,
     borderTopWidth: 0.5,
-    borderColor: '#334155',
+    borderColor: 'rgba(255,255,255,0.08)',
     zIndex: 100,
   },
   tabItem: {
@@ -92,12 +92,12 @@ const styles = StyleSheet.create({
     height: 15,
   },
   tabText: {
-    color: '#64748b',
+    color: '#B8C9DB',
     fontSize: 10,
     fontWeight: '400',
     marginTop: 2,
   },
   tabTextActive: {
-    color: '#2dd4bf',
+    color: '#3B9B6E',
   },
 });

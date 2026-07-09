@@ -25,14 +25,15 @@ export default function LocationReviewButton({
           disabled && styles.buttonDisabled,
         ]}
         onPress={onPress}
-        disabled={disabled}>
+        disabled={disabled}
+      >
         <Ionicons
-          name={isSelected ? 'checkmark-circle' : 'add-circle-outline'}
-          size={24}
-          color="#ffffff"
+          name={isSelected ? 'create-outline' : 'location-outline'}
+          size={22}
+          color="#FFFFFF"
         />
         <Text style={styles.text}>
-          {isSelected ? 'Avaliar' : 'Registrar Ocorrência'}
+          {isSelected ? 'Registrar ocorrencia' : 'Marcar local'}
         </Text>
       </Pressable>
     </View>
@@ -41,28 +42,25 @@ export default function LocationReviewButton({
 
 const styles = StyleSheet.create({
   container: {
-    // Sombra sutil que se soma à elevação do pai
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
   },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 30,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+    borderRadius: 12,
     gap: 8,
   },
   buttonNormal: {
-    // Tom verde esmeralda profundo premium
-    backgroundColor: '#0f766e',
+    backgroundColor: '#1A3550',
   },
   buttonSelected: {
-    // Gradiente laranja/vermelho escuro para indicar o ponto selecionado pronto para avaliação
-    backgroundColor: '#ea580c',
+    backgroundColor: '#3B9B6E',
   },
   buttonPressed: {
     opacity: 0.85,
@@ -73,9 +71,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   text: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

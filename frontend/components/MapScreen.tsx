@@ -479,10 +479,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: '#F4F7FA',
   },
   fallbackText: {
-    color: '#cbd5e1',
+    color: '#64748B',
     fontSize: 16,
   },
   nativeUserMarkerOuter: {

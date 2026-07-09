@@ -6,7 +6,12 @@ export function useSharedRouteTracking(token: string) {
   const [session, setSession] = useState<SharedRouteDetails | null>(null);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fetchTrackingData = async (isInitial = false) => {
-    if (!token) return;
+    if (!token) {
+      setError('INVALID');
+      setLoading(false);
+      return;
+    }
+
     try {
       if (isInitial) setLoading(true);
       const data = await shareService.getSharedRoute(token);

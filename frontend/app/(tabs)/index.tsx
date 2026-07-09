@@ -279,7 +279,7 @@ export default function HomeScreen() {
             <>
               {/* Left Slot: Tip Button */}
               <TouchableOpacity style={styles.headerIconBtn} onPress={showTipBanner} activeOpacity={0.7}>
-                <Ionicons name="help-circle" size={22} color="#fb7e44" />
+                <Ionicons name="help-circle" size={22} color="#D4903C" />
               </TouchableOpacity>
 
               {/* Center Slot: Centered Risk Indicator Pill */}
@@ -297,14 +297,14 @@ export default function HomeScreen() {
 
               {/* Right Slot: Sidebar Toggle Button */}
               <TouchableOpacity style={styles.headerIconBtn} onPress={() => setSidebarVisible(true)} activeOpacity={0.7}>
-                <Ionicons name="menu" size={22} color="#2dd4bf" />
+                <Ionicons name="menu" size={22} color="#E8EDF2" />
               </TouchableOpacity>
             </>
           ) : (
             <>
               {/* Left Slot: Sidebar Toggle Button */}
               <TouchableOpacity style={styles.headerIconBtn} onPress={() => setSidebarVisible(true)} activeOpacity={0.7}>
-                <Ionicons name="menu" size={22} color="#2dd4bf" />
+                <Ionicons name="menu" size={22} color="#E8EDF2" />
               </TouchableOpacity>
 
               {/* Center Slot: Centered Risk Indicator Pill */}
@@ -322,7 +322,7 @@ export default function HomeScreen() {
 
               {/* Right Slot: Tip Button */}
               <TouchableOpacity style={styles.headerIconBtn} onPress={showTipBanner} activeOpacity={0.7}>
-                <Ionicons name="help-circle" size={22} color="#fb7e44" />
+                <Ionicons name="help-circle" size={22} color="#D4903C" />
               </TouchableOpacity>
             </>
           )}
@@ -341,50 +341,71 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Botão de Recentralização (Tamanho Médio - 48x48px) */}
+        {/* Botão de Recentralização */}
         <TouchableOpacity
           style={[
             styles.recenterButtonBottom,
             isRightHanded ? { left: 16 } : { right: 16 },
-            { bottom: 70 + insets.bottom }
+            { bottom: 160 + insets.bottom }
           ]}
           onPress={() => mapRef.current?.recenter()}
           activeOpacity={0.8}
           accessibilityLabel="Centralizar na minha localização"
         >
-          <Ionicons name="locate" size={22} color="#2dd4bf" />
+          <Ionicons name="locate" size={22} color="#FFFFFF" />
         </TouchableOpacity>
 
-        {/* Botão de Emergência (Fixo - Tamanho Grande: 95x95px) */}
+        {/* Botão de Emergência */}
         <EmergencyButton
           onPress={handleEmergencyPress}
           style={[
             isRightHanded ? { right: 16 } : { left: 16 },
-            { bottom: 80 + insets.bottom }
+            { bottom: 150 + insets.bottom }
           ]}
         />
 
         {/* CONTAINER DO BOTÃO DE REGISTRAR OCORRÊNCIA */}
         <View style={[
           styles.actionButtonsContainer,
-          { bottom: 0 + insets.bottom }
+          { bottom: 12 + insets.bottom }
         ]}>
-          <View style={styles.smallButtonWrapper}>
-            <LocationReviewButton
-              isSelected={selectedPoint !== null}
-              onPress={handleReviewButtonClick}
-            />
-          </View>
-
           {selectedPoint ? (
+            <>
+              <View style={styles.smallButtonWrapper}>
+                <LocationReviewButton
+                  isSelected={selectedPoint !== null}
+                  onPress={handleReviewButtonClick}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.clearSelectionButtonSmall}
+                onPress={() => setSelectedPoint(null)}
+              >
+                <Ionicons name="close" size={18} color="#ffffff" />
+                <Text style={styles.clearSelectionButtonTextSmall}>Cancelar</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
             <TouchableOpacity
-              style={styles.clearSelectionButtonSmall}
-              onPress={() => setSelectedPoint(null)}
+              style={styles.mapHintCard}
+              onPress={showTipBanner}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Como registrar uma ocorrencia"
             >
-              <Ionicons name="close-circle" size={18} color="#ffffff" />
-              <Text style={styles.clearSelectionButtonTextSmall}>Cancelar</Text>
+              <View style={styles.mapHintIcon}>
+                <Ionicons name="location-outline" size={20} color="#3B9B6E" />
+              </View>
+
+              <View style={styles.mapHintTextBox}>
+                <Text style={styles.mapHintTitle}>Registrar ocorrencia</Text>
+                <Text style={styles.mapHintText} numberOfLines={2}>
+                  Toque e segure no mapa para marcar o local.
+                </Text>
+              </View>
             </TouchableOpacity>
-          ) : null}
+          )}
         </View>
 
         {/* Alertas flutuantes soberanos */}
@@ -463,37 +484,35 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
   },
   header: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: Platform.OS === 'ios' ? 54 : 64,
+    height: Platform.OS === 'ios' ? 60 : 68,
     backgroundColor: 'transparent',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    borderBottomWidth: 0.5,
-    borderColor: 'transparent',
+    paddingHorizontal: 18,
+    borderBottomWidth: 0,
     zIndex: 100,
   },
   headerIconBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#1e293b',
+    backgroundColor: 'rgba(26,53,80,0.92)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 0.5,
-    borderColor: '#334155',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
     shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 6,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
   headerCenter: {
     flex: 1,
@@ -502,17 +521,23 @@ const styles = StyleSheet.create({
   },
   tipBanner: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 54 : 64,
-    left: 0,
-    right: 0,
-    backgroundColor: '#0f766e',
+    top: Platform.OS === 'ios' ? 60 : 68,
+    left: 16,
+    right: 16,
+    backgroundColor: '#2A6B5A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 10,
+    borderRadius: 12,
     zIndex: 999,
     gap: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
   },
   tipBannerText: {
     color: '#ffffff',
@@ -529,46 +554,89 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#1e293b',
-    borderWidth: 0.5,
-    borderColor: '#334155',
+    backgroundColor: '#1A3550',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 99,
     shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 8,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
   },
   actionButtonsContainer: {
     position: 'absolute',
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 0,
-    zIndex: 0,
-    elevation: 0,
+    gap: 10,
+    zIndex: 80,
+    elevation: 8,
   },
   smallButtonWrapper: {
-    transform: [{ scale: 0.85 }],
+    transform: [{ scale: 0.94 }],
   },
   clearSelectionButtonSmall: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 44,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
     gap: 4,
-    backgroundColor: '#1f2937',
-    borderWidth: 0.5,
-    borderColor: '#334155',
-    elevation: 6,
+    backgroundColor: '#1A3550',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    elevation: 4,
   },
   clearSelectionButtonTextSmall: {
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',
+  },
+  mapHintCard: {
+    width: 315,
+    minHeight: 76,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#1A3550',
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 8,
+  },
+  mapHintIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#ECFDF3',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  mapHintTextBox: {
+    flex: 1,
+    minWidth: 0,
+  },
+  mapHintTitle: {
+    color: '#1A3550',
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  mapHintText: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 16,
   },
 });

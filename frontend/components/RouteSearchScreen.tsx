@@ -388,9 +388,7 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
                   <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
                 </TouchableOpacity>
 
-                <Text style={styles.logoText}>
-                  Rotas <Text style={styles.logoTextHighlight}>Seguras</Text>
-                </Text>
+                <Text style={styles.headerTitle}>Rota recomendada</Text>
 
                 <View style={styles.iconButton} />
               </View>
@@ -1018,4 +1016,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 1,
   },
+    headerTitle: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+
 });
