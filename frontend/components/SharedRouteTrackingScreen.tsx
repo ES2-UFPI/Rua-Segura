@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { StyleSheet, View, Text, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +27,13 @@ export default function SharedRouteTrackingScreen({ token }: Props) {
   const nativeMapRef = useRef<any>(null);
   
   const { loading, error, session } = useSharedRouteTracking(token);
+  const routeLineCoordinates = useMemo(() => {
+    if (!session) return [];
+
+    return session.routeCoordinates && session.routeCoordinates.length > 1
+      ? session.routeCoordinates
+      : [session.origin, session.currentLocation, session.destination];
+  }, [session]);
 
   // Estados e referências para controle do mapa Web (Leaflet)
   const webMapId = `share-tracking-map-${token}`;
@@ -92,7 +99,7 @@ export default function SharedRouteTrackingScreen({ token }: Props) {
       }
       webMapRef.current = null;
     };
-  }, [token, session !== null]);
+  }, [webMapId, session !== null]);
 
   // Atualiza marcadores e polylines na Web ao mudar os dados do mock/polling
   useEffect(() => {
@@ -141,11 +148,10 @@ export default function SharedRouteTrackingScreen({ token }: Props) {
     }
 
     // Desenha trajeto
-    webPolylineRef.current = L.polyline([
-      [session.origin.latitude, session.origin.longitude],
-      [session.currentLocation.latitude, session.currentLocation.longitude],
-      [session.destination.latitude, session.destination.longitude]
-    ], {
+    webPolylineRef.current = L.polyline(routeLineCoordinates.map((coord) => [
+      coord.latitude,
+      coord.longitude,
+    ]), {
       color: '#10b981',
       weight: 4,
       opacity: 0.8,
@@ -155,7 +161,7 @@ export default function SharedRouteTrackingScreen({ token }: Props) {
 
     // Pan para nova posição atual
     map.panTo([session.currentLocation.latitude, session.currentLocation.longitude]);
-  }, [session, leafletLoaded]);
+  }, [session, leafletLoaded, routeLineCoordinates]);
 
   const formatTime = (isoString: string) => {
     try {
@@ -270,7 +276,7 @@ export default function SharedRouteTrackingScreen({ token }: Props) {
               pinColor="#10b981"
             />
             <Polyline
-              coordinates={[session!.origin, session!.currentLocation, session!.destination]}
+              coordinates={routeLineCoordinates}
               strokeColor="#10b981"
               strokeWidth={4}
             />

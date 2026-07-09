@@ -168,6 +168,13 @@ function RouteSummaryCard({
         </View>
       </View>
 
+      <View style={styles.reasonBox}>
+        <Text style={styles.reasonTitle}>Seguranca da rota</Text>
+        <Text style={styles.reasonText} numberOfLines={2}>
+          {riskDescription}
+        </Text>
+      </View>
+
       <TouchableOpacity
         style={styles.startRouteButton}
         activeOpacity={0.85}

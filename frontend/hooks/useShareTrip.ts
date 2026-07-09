@@ -12,6 +12,7 @@ type UseShareTripResult = {
   startSharing: (
     currentLocation: ShareCoordinate,
     destination: ShareCoordinate,
+    routeCoordinates?: ShareCoordinate[],
   ) => Promise<void>;
   stopSharing: () => Promise<void>;
   copyShareLink: () => Promise<void>;
@@ -33,14 +34,15 @@ export function useShareTrip() {
   }, []);
 
   const startSharing = useCallback(async (
-    currentLocation: { latitude: number; longitude: number },
-    destination: { latitude: number; longitude: number }
+    currentLocation: ShareCoordinate,
+    destination: ShareCoordinate,
+    routeCoordinates?: ShareCoordinate[],
   ) => {
     if (activeSession) return;
     setIsStarting(true);
     clearMessages();
     try {
-      const session = await shareService.startSharing(currentLocation, destination);
+      const session = await shareService.startSharing(currentLocation, destination, routeCoordinates);
       setActiveSession(session);
       setSuccessMessage('Compartilhamento iniciado.');
       // Auto-limpeza do feedback após 3 segundos
