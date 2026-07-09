@@ -151,3 +151,23 @@ export function formatRiskLevel(level: SafeRouteRiskLevel): string {
       return 'Risco indisponivel';
   }
 }
+
+export function formatRouteSafetyMessage(
+  level: SafeRouteRiskLevel,
+  backendDescription?: string,
+): string {
+  if (backendDescription?.trim()) {
+    return backendDescription.trim();
+  }
+
+  switch (level) {
+    case 'LOW':
+      return 'Rota segura no momento.';
+    case 'MEDIUM':
+      return 'Rota moderada. Mantenha atencao durante o trajeto.';
+    case 'HIGH':
+      return 'Rota arriscada. Considere escolher outro trajeto.';
+    default:
+      return 'Nao foi possivel classificar a seguranca desta rota.';
+  }
+}

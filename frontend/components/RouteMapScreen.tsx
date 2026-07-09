@@ -14,6 +14,7 @@ import { useRouter, useLocalSearchParams} from 'expo-router';
 import {
   calculateSafeRoute,
   formatRiskLevel,
+  formatRouteSafetyMessage,
   formatRouteDistance,
   formatRouteDuration,
   SafeRouteSearchResult,
@@ -85,6 +86,7 @@ type RouteSummaryCardProps = {
   distanceLabel: string;
   durationLabel: string;
   riskLabel: string;
+  riskLevel: string;
   riskDescription: string;
   errorMessage: string | null;
   isLoading: boolean;
@@ -98,12 +100,27 @@ function RouteSummaryCard({
   distanceLabel,
   durationLabel,
   riskLabel,
+  riskLevel,
   riskDescription,
   errorMessage,
   isLoading,
   onRetry,
   onStartRoute,
 }: RouteSummaryCardProps) {
+  const riskBadgeStyle =
+    riskLevel === 'HIGH'
+      ? styles.riskBadgeHigh
+      : riskLevel === 'MEDIUM'
+      ? styles.riskBadgeMedium
+      : styles.riskBadgeLow;
+
+  const riskBadgeTextStyle =
+    riskLevel === 'HIGH'
+      ? styles.riskBadgeTextHigh
+      : riskLevel === 'MEDIUM'
+      ? styles.riskBadgeTextMedium
+      : styles.riskBadgeTextLow;
+
   return (
     <View style={styles.routeSummaryCard}>
       <View style={styles.summaryTopRow}>
@@ -112,17 +129,9 @@ function RouteSummaryCard({
           <Text style={styles.summaryDistance}>{distanceLabel} - {durationLabel}</Text>
         </View>
 
-        <View style={styles.riskBadge}>
-          <Text style={styles.riskBadgeText}>{riskLabel}</Text>
+        <View style={[styles.riskBadge, riskBadgeStyle]}>
+          <Text style={[styles.riskBadgeText, riskBadgeTextStyle]}>{riskLabel}</Text>
         </View>
-      </View>
-
-      <View style={styles.routeMetricsRow}>
-        <Text style={styles.routeMetricText}>{distanceLabel}</Text>
-        <Text style={styles.routeMetricSeparator}>|</Text>
-        <Text style={styles.routeMetricText}>{durationLabel}</Text>
-        <Text style={styles.routeMetricSeparator}>|</Text>
-        <Text style={styles.routeMetricText}>{riskLabel}</Text>
       </View>
 
       {isLoading && (
@@ -157,16 +166,6 @@ function RouteSummaryCard({
             {destinationName}
           </Text>
         </View>
-      </View>
-
-      <View style={styles.reasonBox}>
-        <Text style={styles.reasonTitle}>Por que essa rota?</Text>
-        <Text style={styles.reasonText}>{riskDescription}</Text>
-
-        <Text style={styles.reasonText}>
-          Esta rota evita áreas com maior concentração de ocorrências e prioriza
-          vias mais iluminadas.
-        </Text>
       </View>
 
       <TouchableOpacity
@@ -252,7 +251,10 @@ export default function RouteMapScreen() {
   const distanceLabel = safeRoute ? formatRouteDistance(safeRoute.distanceMeters) : '-- km';
   const durationLabel = safeRoute ? formatRouteDuration(safeRoute.durationSeconds) : '-- min';
   const riskLabel = safeRoute ? formatRiskLevel(safeRoute.risk.level) : 'Calculando';
-  const riskDescription = safeRoute?.risk.description || 'A rota segura sera exibida assim que o calculo terminar.';
+  const riskLevel = safeRoute?.risk.level ?? '';
+  const riskDescription = safeRoute
+    ? formatRouteSafetyMessage(safeRoute.risk.level, safeRoute.risk.description)
+    : 'A rota segura sera exibida assim que o calculo terminar.';
 
   const loadSafeRoute = useCallback(async () => {
     if (!hasOriginCoords || !hasDestinationCoords) return;
@@ -305,6 +307,7 @@ export default function RouteMapScreen() {
         estimatedTime: durationLabel,
         totalDistance: distanceLabel,
         riskLevel: riskLabel,
+        routeMessage: riskDescription,
         routeCoordinatesJson: JSON.stringify(routeLineCoords),
         stepsJson: JSON.stringify(safeRoute?.steps ?? []),
       },
@@ -566,6 +569,7 @@ export default function RouteMapScreen() {
               distanceLabel={distanceLabel}
               durationLabel={durationLabel}
               riskLabel={riskLabel}
+              riskLevel={riskLevel}
               riskDescription={riskDescription}
               errorMessage={routeErrorMessage}
               isLoading={isRouteLoading}
@@ -615,6 +619,7 @@ export default function RouteMapScreen() {
               distanceLabel={distanceLabel}
               durationLabel={durationLabel}
               riskLabel={riskLabel}
+              riskLevel={riskLevel}
               riskDescription={riskDescription}
               errorMessage={routeErrorMessage}
               isLoading={isRouteLoading}
@@ -689,6 +694,7 @@ export default function RouteMapScreen() {
             distanceLabel={distanceLabel}
             durationLabel={durationLabel}
             riskLabel={riskLabel}
+            riskLevel={riskLevel}
             riskDescription={riskDescription}
             errorMessage={routeErrorMessage}
             isLoading={isRouteLoading}
@@ -847,27 +853,62 @@ const styles = StyleSheet.create({
   },
 
   riskBadge: {
-    backgroundColor: '#DCFCE7',
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 999,
   },
 
+  riskBadgeLow: {
+    backgroundColor: '#DCFCE7',
+  },
+
+  riskBadgeMedium: {
+    backgroundColor: '#FEF3C7',
+  },
+
+  riskBadgeHigh: {
+    backgroundColor: '#FEE2E2',
+  },
+
   riskBadgeText: {
-    color: '#166534',
     fontSize: 11,
     fontWeight: '800',
+  },
+
+  riskBadgeTextLow: {
+    color: '#166534',
+  },
+
+  riskBadgeTextMedium: {
+    color: '#92400E',
+  },
+
+  riskBadgeTextHigh: {
+    color: '#B42318',
   },
 
   routeMetricsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
     backgroundColor: '#F8FAFC',
     borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 10,
     marginBottom: 12,
+  },
+
+  routeMetricItem: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 6,
+  },
+
+  routeMetricLabel: {
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    marginBottom: 3,
   },
 
   routeMetricText: {
@@ -876,11 +917,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  routeMetricSeparator: {
-    color: '#CBD5E1',
-    fontSize: 12,
-    fontWeight: '800',
-    marginHorizontal: 8,
+  routeMetricDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: '#E2E8F0',
   },
 
   routeFeedbackBox: {
