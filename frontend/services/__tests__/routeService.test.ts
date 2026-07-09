@@ -19,7 +19,7 @@ function mockJsonResponse(status: number, body: unknown) {
 
 describe('routeService', () => {
   beforeEach(() => {
-    global.fetch = jest.fn();
+    (globalThis as any).fetch = jest.fn();
   });
 
   afterEach(() => {
@@ -58,7 +58,7 @@ describe('routeService', () => {
       nearbyOccurrences: [],
     };
 
-    (global.fetch as jest.Mock).mockImplementationOnce(() => mockJsonResponse(200, apiResponse));
+    ((globalThis as any).fetch as jest.Mock).mockImplementationOnce(() => mockJsonResponse(200, apiResponse));
 
     const payload = {
       origin: { latitude: -5.0892, longitude: -42.8016 },
@@ -67,7 +67,7 @@ describe('routeService', () => {
 
     const result = await calculateSafeRoute(payload);
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect((globalThis as any).fetch).toHaveBeenCalledWith(
       'http://api.test/api/routes/safe',
       expect.objectContaining({
         method: 'POST',
@@ -80,7 +80,7 @@ describe('routeService', () => {
   });
 
   it('deve tratar erro retornado pelo backend', async () => {
-    (global.fetch as jest.Mock).mockImplementationOnce(() =>
+    ((globalThis as any).fetch as jest.Mock).mockImplementationOnce(() =>
       mockJsonResponse(400, { detail: 'Origin must contain latitude and longitude' })
     );
 
@@ -100,7 +100,7 @@ describe('routeService', () => {
   });
 
   it('deve tratar falha de rede com mensagem compreensivel', async () => {
-    (global.fetch as jest.Mock).mockRejectedValueOnce(new TypeError('Network request failed'));
+    ((globalThis as any).fetch as jest.Mock).mockRejectedValueOnce(new TypeError('Network request failed'));
 
     await expect(
       calculateSafeRoute({

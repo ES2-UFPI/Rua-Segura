@@ -1090,7 +1090,7 @@ export default function ActiveRouteScreen() {
             isCopying={isCopying}
             errorMessage={errorMessage}
             successMessage={successMessage}
-            onStartSharing={() => startSharing(currentLocation, destination, routeCoordinates)}
+            onStartSharing={() => startSharing(currentLocation, destination)}
             onStopSharing={stopSharing}
             onCopyLink={copyShareLink}
             onClose={() => setIsSecurityOpen(false)}

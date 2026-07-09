@@ -1,6 +1,23 @@
 import { useState, useCallback } from 'react';
 import * as Clipboard from 'expo-clipboard';
-import { shareService, ShareSession } from '../services/shareService';
+import { shareService, ShareCoordinate, ShareSession } from '../services/shareService';
+
+type UseShareTripResult = {
+  activeSession: ShareSession | null;
+  isStarting: boolean;
+  isStopping: boolean;
+  isCopying: boolean;
+  errorMessage: string | null;
+  successMessage: string | null;
+  startSharing: (
+    currentLocation: ShareCoordinate,
+    destination: ShareCoordinate,
+  ) => Promise<void>;
+  stopSharing: () => Promise<void>;
+  copyShareLink: () => Promise<void>;
+  updateSharingLocation: (location: ShareCoordinate) => Promise<void>;
+  clearMessages: () => void;
+};
 
 export function useShareTrip() {
   const [activeSession, setActiveSession] = useState<ShareSession | null>(null);
@@ -69,6 +86,17 @@ export function useShareTrip() {
     }
   }, [activeSession, clearMessages]);
 
+  const updateSharingLocation = useCallback(async (location: ShareCoordinate) => {
+    if (!activeSession) return;
+
+    try {
+      await shareService.updateLocation(activeSession.token, location);
+    } catch (err: any) {
+      setErrorMessage('Nao foi possivel atualizar a localizacao compartilhada.');
+      setTimeout(() => setErrorMessage(null), 3000);
+    }
+  }, [activeSession]);
+
   return {
     activeSession,
     isStarting,
@@ -79,6 +107,7 @@ export function useShareTrip() {
     startSharing,
     stopSharing,
     copyShareLink,
+    updateSharingLocation,
     clearMessages,
-  };
+  } satisfies UseShareTripResult;
 }
