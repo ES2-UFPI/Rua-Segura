@@ -15,6 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { geocodeLocation } from '../services/geocodingService';
+import { calculateSafeRoute } from '../services/routeService';
 
 type Coordinates = {
   latitude: number;
@@ -49,29 +51,6 @@ const EMPTY_LOCATION: RouteLocationDraft = {
   text: '',
   coordinates: null,
 };
-
-const SAVED_LOCATIONS: Suggestion[] = [
- {
-  id: 'home',
-  label: 'Casa',
-  subtitle: 'Local salvo',
-  icon: 'home-outline',
-  coordinates: {
-    latitude: -5.0836,
-    longitude: -42.7934,
-  },
-},
-{
-  id: 'work',
-  label: 'Trabalho',
-  subtitle: 'Local salvo',
-  icon: 'briefcase-outline',
-  coordinates: {
-    latitude: -5.0805,
-    longitude: -42.7901,
-  },
-},
-]
 
 const RECENT_LOCATIONS: Suggestion[] = [
   {
@@ -139,6 +118,21 @@ const POPULAR_REGIONS: Suggestion[] = [
   },
 ];
 
+async function resolveRouteLocation(location: RouteLocationDraft): Promise<RouteLocationDraft> {
+  if (location.coordinates) {
+    return location;
+  }
+
+  const geocodedLocation = await geocodeLocation(location.text);
+
+  return {
+    text: location.text.trim() || geocodedLocation.label,
+    coordinates: {
+      latitude: geocodedLocation.latitude,
+      longitude: geocodedLocation.longitude,
+    },
+  };
+}
 
 export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) {
   const router = useRouter();
@@ -148,8 +142,8 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
     useState<RouteLocationDraft>(EMPTY_LOCATION);
 
   const [activeField, setActiveField] = useState<FieldName>('origin');
-  const [routeDraft, setRouteDraft] = useState<RouteSearchData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isFormValid =
     origin.text.trim().length > 0 && destination.text.trim().length > 0;
@@ -161,7 +155,7 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
     });
 
     setActiveField('origin');
-    setRouteDraft(null);
+    setErrorMessage(null);
   };
 
   const handleChangeDestination = (value: string) => {
@@ -171,14 +165,14 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
     });
 
     setActiveField('destination');
-    setRouteDraft(null);
+    setErrorMessage(null);
   };
 
   const handleClearOrigin = () => {
     if (isLoading) return;
 
     setOrigin(EMPTY_LOCATION);
-    setRouteDraft(null);
+    setErrorMessage(null);
     setActiveField('origin');
   };
 
@@ -186,7 +180,7 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
     if (isLoading) return;
 
     setDestination(EMPTY_LOCATION);
-    setRouteDraft(null);
+    setErrorMessage(null);
     setActiveField('destination');
   };
 
@@ -202,7 +196,7 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
       setDestination(selectedLocation);
     }
 
-    setRouteDraft(null);
+    setErrorMessage(null);
   };
 
   const prepareRouteDraft = (): RouteSearchData => {
@@ -222,48 +216,45 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
   if (!isFormValid || isLoading) return;
 
   setIsLoading(true);
+  setErrorMessage(null);
 
   try {
-    const preparedRouteDraft = prepareRouteDraft();
+    const draft = prepareRouteDraft();
+    const preparedRouteDraft: RouteSearchData = {
+      origin: await resolveRouteLocation(draft.origin),
+      destination: await resolveRouteLocation(draft.destination),
+    };
 
-    setRouteDraft(preparedRouteDraft);
+    const originCoordinates = preparedRouteDraft.origin.coordinates;
+    const destinationCoordinates = preparedRouteDraft.destination.coordinates;
+
+    if (!originCoordinates || !destinationCoordinates) {
+      throw new Error('Nao foi possivel encontrar coordenadas para origem e destino.');
+    }
 
     if (onSearch) {
       await onSearch(preparedRouteDraft);
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, 900));
     }
 
-    console.log(
-      'Dados disponíveis para requisição de rota:',
-      preparedRouteDraft,
-    );
+    const safeRoute = await calculateSafeRoute({
+      origin: originCoordinates,
+      destination: destinationCoordinates,
+    });
 
     router.push({
       pathname: '/route-map',
       params: {
         originName: preparedRouteDraft.origin.text,
         destinationName: preparedRouteDraft.destination.text,
-        originLatitude:
-          preparedRouteDraft.origin.coordinates?.latitude !== undefined
-            ? String(preparedRouteDraft.origin.coordinates.latitude)
-            : '',
-        originLongitude:
-          preparedRouteDraft.origin.coordinates?.longitude !== undefined
-            ? String(preparedRouteDraft.origin.coordinates.longitude)
-            : '',
-        destinationLatitude:
-          preparedRouteDraft.destination.coordinates?.latitude !== undefined
-            ? String(preparedRouteDraft.destination.coordinates.latitude)
-            : '',
-        destinationLongitude:
-          preparedRouteDraft.destination.coordinates?.longitude !== undefined
-            ? String(preparedRouteDraft.destination.coordinates.longitude)
-            : '',
+        originLatitude: String(originCoordinates.latitude),
+        originLongitude: String(originCoordinates.longitude),
+        destinationLatitude: String(destinationCoordinates.latitude),
+        destinationLongitude: String(destinationCoordinates.longitude),
+        routeData: JSON.stringify(safeRoute),
       },
     });
-  } catch (error) {
-    console.error('Erro ao preparar rota:', error);
+  } catch (error: any) {
+    setErrorMessage(error?.message || 'Nao foi possivel calcular a rota segura. Tente novamente.');
   } finally {
     setIsLoading(false);
   }
@@ -488,6 +479,13 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
                 </Text>
               )}
 
+              {errorMessage && (
+                <View style={styles.errorBox}>
+                  <Ionicons name="alert-circle-outline" size={18} color="#DC2626" />
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                </View>
+              )}
+
 
               <View style={styles.suggestionsCard}>
                 <View style={styles.suggestionsHeader}>
@@ -496,38 +494,6 @@ export default function RouteSearchScreen({ onSearch }: RouteSearchScreenProps) 
                       ? 'Escolha sua origem'
                       : 'Escolha seu destino'}
                   </Text>
-                </View>
-
-                <View style={styles.savedSection}>
-                  <Text style={styles.suggestionSectionTitle}>
-                    Locais salvos
-                  </Text>
-
-                  <View style={styles.savedLocationsRow}>
-                    {SAVED_LOCATIONS.map((suggestion) => (
-                      <TouchableOpacity
-                        key={suggestion.id}
-                        style={styles.savedLocationCard}
-                        onPress={() => handleSelectSuggestion(suggestion)}
-                        activeOpacity={0.75}
-                      >
-                        <View style={styles.savedLocationIcon}>
-                          <Ionicons
-                            name={suggestion.icon}
-                            size={20}
-                            color="#16A34A"
-                          />
-                        </View>
-
-                        <Text style={styles.savedLocationTitle}>
-                          {suggestion.label}
-                        </Text>
-                        <Text style={styles.savedLocationSubtitle}>
-                          {suggestion.subtitle}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
                 </View>
 
                 {renderSuggestionSection('Buscas recentes', RECENT_LOCATIONS)}
@@ -750,6 +716,27 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FEE2E2',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 10,
+  },
+
+  errorText: {
+    flex: 1,
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+    marginLeft: 8,
+  },
+
   draftCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -803,47 +790,6 @@ const styles = StyleSheet.create({
 
   savedSection: {
     paddingTop: 4,
-  },
-
-  savedLocationsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingTop: 6,
-    paddingBottom: 10,
-  },
-
-  savedLocationCard: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E5EAF0',
-    padding: 12,
-    alignItems: 'flex-start',
-  },
-
-  savedLocationIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#ECFDF3',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-
-  savedLocationTitle: {
-    color: '#102A56',
-    fontSize: 14,
-    fontWeight: '800',
-    marginBottom: 2,
-  },
-
-  savedLocationSubtitle: {
-    color: '#64748B',
-    fontSize: 12,
-    fontWeight: '500',
   },
 
   suggestionSection: {
